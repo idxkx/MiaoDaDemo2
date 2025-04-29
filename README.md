@@ -2,6 +2,17 @@
 
 一款基于Python和PyQt6开发的智能穿搭推荐桌面应用程序，集成AI技术，帮助用户管理个人衣橱并获取个性化穿搭建议。
 
+## 文档导航
+
+- [开发计划](docs/development_plan.md) - 项目开发规划和任务列表
+- [技术栈](docs/tech_stack.md) - 使用的技术和框架说明
+- [项目结构](docs/project_structure.md) - 详细的项目结构说明
+- [AI模型设计](docs/ai_models_design.md) - AI模型架构和实现细节
+- [客户端设计](docs/client_design.md) - 客户端UI和功能设计
+- [用户流程](docs/user_flow.md) - 用户使用流程和场景
+- [开发变更](docs/development_changes.md) - 开发过程中的重要变更记录
+- [DDD实现指南](docs/ddd_implementation_guide.md) - 领域驱动设计实现指南
+
 ## 主要功能
 
 - 🎭 虚拟角色系统：提供6个预设角色（3男3女），满足不同用户需求
@@ -10,6 +21,7 @@
 - 💡 智能穿搭推荐：基于场景和个人特征推荐合适搭配
 - 💾 本地数据存储：保护用户隐私，支持离线使用
 - 🎨 美观的界面：现代化的GUI设计，流畅的交互体验
+- 📱 高性能：启动时间<3秒，界面响应<100ms，图片加载<200ms，AI推理<1秒
 
 ## 系统要求
 
@@ -22,7 +34,7 @@
 
 1. 克隆项目
 ```bash
-git clone https://github.com/yourusername/MiaoDaDemo2.git
+git clone https://github.com/idxkx/MiaoDaDemo2.git
 cd MiaoDaDemo2
 ```
 
@@ -39,7 +51,7 @@ pip install -r requirements.txt
 
 4. 运行应用
 ```bash
-python client/main.py
+python src/main.py
 ```
 
 ## 使用说明
@@ -50,6 +62,8 @@ python client/main.py
    - 管理已有服装
    - 获取穿搭推荐
    - 收藏喜欢的搭配
+   - 设置个人偏好
+   - 备份重要数据
 
 ## 快捷键
 
@@ -64,15 +78,27 @@ python client/main.py
 
 ```
 MiaoDaDemo2/
-├── backend/           # 后端服务
-├── client/           # 桌面客户端
-│   ├── ui/          # 界面定义
+├── docs/             # 项目文档
+├── models/           # AI模型文件
+│   ├── Anno_fine/   # 细粒度标注模型
+│   └── my_clothes_model/ # 服装识别模型
+├── resources/        # 资源文件
+│   ├── images/      # 图片资源
+│   ├── styles/      # 样式文件
+│   └── translations/ # 多语言文件
+├── src/             # 源代码
 │   ├── controllers/ # 控制器
+│   ├── domain/      # 领域模型
+│   ├── infrastructure/ # 基础设施
 │   ├── models/      # 数据模型
 │   ├── utils/       # 工具函数
-│   └── resources/   # 资源文件
-├── models/           # AI模型
-└── tools/            # 开发工具
+│   └── views/       # 视图
+├── storage/         # 数据存储
+│   ├── images/      # 图片存储
+│   ├── logs/        # 日志文件
+│   └── temp/        # 临时文件
+├── tests/           # 测试代码
+└── tools/           # 开发工具
 ```
 
 ## 开发指南
@@ -95,6 +121,8 @@ pip install -r requirements-dev.txt
 - 使用flake8进行代码检查
 - 使用mypy进行类型检查
 - 遵循PEP 8命名规范
+- 所有功能必须有单元测试
+- 代码提交前必须更新相关文档
 
 ### 提交规范
 
@@ -122,7 +150,7 @@ pytest tests/ui/
 
 构建可执行文件：
 ```bash
-pyinstaller client/main.py
+pyinstaller src/main.py
 ```
 
 ## 贡献指南
@@ -139,7 +167,7 @@ pyinstaller client/main.py
 
 1. 提交 Issue
 2. 在应用内使用反馈功能
-3. 发送邮件到 support@example.com
+3. 发送邮件到 support@litata.com
 
 ## 许可证
 
@@ -147,7 +175,7 @@ MIT License
 
 ## 作者
 
-[Your Name](https://github.com/yourusername)
+[MiaoDa Team](https://github.com/idxkx)
 
 ## 致谢
 

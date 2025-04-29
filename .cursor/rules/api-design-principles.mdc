@@ -216,7 +216,7 @@ DELETE /api/v1/clothing-items/123
 ```
 
 ## 相关文档
-- API端点列表: [project_structure.md](mdc:project_structure.md)
-- 技术栈: [tech_stack.md](mdc:tech_stack.md)
+- API端点列表: [project_structure.md](docs/project_structure.md)
+- 技术栈: [tech_stack.md](docs/tech_stack.md)
 
 

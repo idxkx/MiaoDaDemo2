@@ -67,4 +67,4 @@ alwaysApply: false
 ## 参考文档
 
 - 模型管理: [model-management.mdc](mdc:.cursor/rules/model-management.mdc)
-- 模型设计: [ai_models_design.md](mdc:ai_models_design.md)
+- 模型设计: [ai_models_design.md](docs/ai_models_design.md)

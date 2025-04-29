@@ -217,5 +217,5 @@ class Spacing:
 ## 参考文档
 - PyQt6官方文档：[PyQt6 Documentation](mdc:https:/www.riverbankcomputing.com/static/Docs/PyQt6)
 - Qt设计规范：[Qt Style](mdc:https:/doc.qt.io/qt-6/style-reference.html)
-- 项目结构：[project_structure.md](mdc:project_structure.md)
-- 技术栈：[tech_stack.md](mdc:tech_stack.md)
+- 项目结构：[project_structure.md](docs/project_structure.md)
+- 技术栈：[tech_stack.md](docs/tech_stack.md)

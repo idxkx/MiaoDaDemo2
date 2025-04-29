@@ -132,9 +132,9 @@ alwaysApply: false
 
 ## 重要文件引用
 
-- AI模型设计文档: [ai_models_design.md](mdc:ai_models_design.md)
-- 项目结构文档: [project_structure.md](mdc:project_structure.md)
-- 项目说明: [README.md](mdc:README.md)
+- AI模型设计文档: [ai_models_design.md](docs/ai_models_design.md)
+- 项目结构文档: [project_structure.md](docs/project_structure.md)
+- 项目说明: [README.md](README.md)
 
 ## 注意事项
 

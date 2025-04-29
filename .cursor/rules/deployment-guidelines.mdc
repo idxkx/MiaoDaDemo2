@@ -119,5 +119,5 @@ alwaysApply: false
 ## 参考文档
 
 - Docker配置: [docker-compose.yml](mdc:docker-compose.yml)
-- 开发计划: [development_plan.md](mdc:development_plan.md)
-- 快速开始: [README.md](mdc:README.md)
+- 开发计划: [development_plan.md](docs/development_plan.md)
+- 快速开始: [README.md](README.md)

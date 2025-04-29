@@ -1,0 +1,77 @@
+---
+description: 本文档规定了项目中领域驱动设计(DDD)的核心概念、实践规范和代码实现标准。
+globs: 
+alwaysApply: false
+---
+<!-- Cursor Rule: DDD Principles -->
+
+{
+  "type": "development_rule",
+  "title": "领域驱动设计规范",
+  "description": "本文档规定了项目中领域驱动设计(DDD)的核心概念、实践规范和代码实现标准。",
+  "version": "1.0.0",
+  "author": "MiaoDa Team",
+  "categories": [
+    "architecture",
+    "design-pattern",
+    "best-practices"
+  ],
+  "tags": [
+    "ddd",
+    "domain-driven-design",
+    "architecture",
+    "backend"
+  ],
+  "scope": {
+    "includes": [
+      "src/**/*.py",
+      "tests/**/*.py"
+    ],
+    "excludes": [
+      "**/__pycache__/**",
+      "**/migrations/**"
+    ]
+  },
+  "priority": "high",
+  "lastUpdated": "2024-03-13",
+  "references": {
+    "detailed_guide": "docs/ddd_implementation_guide.md"
+  }
+}
+
+<!-- Rule Content -->
+
+# DDD核心规则
+
+## CRITICAL: 领域模型规则
+
+- 实体必须有唯一标识和生命周期
+- 值对象必须不可变且无标识
+- 聚合必须维护业务不变性
+- 领域服务必须无状态
+
+## CRITICAL: 代码实现规则
+
+- 遵循src/目录结构规范
+- 使用规定的基类和接口
+- 实现必要的领域事件
+- 保持聚合边界清晰
+
+## CRITICAL: 命名规范
+
+- 实体类：名词（User, Clothing）
+- 值对象：描述性名词（Email, Size）
+- 聚合根：领域术语（Wardrobe）
+- 领域服务：动词+名词（OutfitRecommender）
+
+## CRITICAL: 关键检查项
+
+- 是否违反DDD原则？
+- 是否跨聚合边界？
+- 是否违反单一职责？
+- 是否有完整测试？
+
+<!-- References -->
+
+详细实现指南请参考：[DDD实现指南](docs/ddd_implementation_guide.md)
+

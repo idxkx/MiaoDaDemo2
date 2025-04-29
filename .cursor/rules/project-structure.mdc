@@ -69,6 +69,6 @@ alwaysApply: false
    - JWT - 简单令牌管理
 
 ## 重要文件引用
-- 数据库模型设计：[project_structure.md](mdc:project_structure.md)
-- API接口设计：[project_structure.md](mdc:project_structure.md)
-- 用户流程设计：[user_flow.md](mdc:user_flow.md)
+- 数据库模型设计：[project_structure.md](docs/project_structure.md)
+- API接口设计：[project_structure.md](docs/project_structure.md)
+- 用户流程设计：[user_flow.md](docs/user_flow.md)
