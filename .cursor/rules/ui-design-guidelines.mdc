@@ -1,0 +1,221 @@
+---
+description: UI设计和用户体验的关键规范和约定
+globs: 
+alwaysApply: false
+---
+{
+  "type": "agent_requested",
+  "title": "UI设计指南",
+  "description": "本文档定义了项目的用户界面设计规范、组件库使用指南和交互设计原则，确保用户界面的一致性和良好的用户体验。",
+  "version": "1.0.0",
+  "author": "MiaoDao Team",
+  "categories": [
+    "desktop",
+    "design",
+    "ui-ux"
+  ],
+  "tags": [
+    "pyqt6",
+    "components",
+    "layout",
+    "styling",
+    "interaction",
+    "accessibility"
+  ],
+  "scope": {
+    "includes": [
+      "app/ui/**/*.py",
+      "app/ui/**/*.ui",
+      "app/resources/**/*.qss"
+    ],
+    "excludes": [
+      "**/__pycache__/**",
+      "**/tests/**"
+    ]
+  },
+  "priority": "high",
+  "lastUpdated": "2024-03-13"
+}
+
+<!-- UI Design Guidelines -->
+
+<!-- Standards and guidelines for PyQt6 desktop application UI design -->
+
+# UI设计与用户体验指南
+
+## 核心原则
+
+- **一致性**: 统一设计语言，包括颜色、字体、间距、组件风格，确保整个应用的视觉统一
+- **简洁性**: 界面清晰，聚焦核心功能，避免冗余元素
+- **反馈性**: 所有操作都有即时的视觉反馈，包括按钮状态变化、进度条等
+- **易用性**: 符合Windows界面设计规范，保持用户的使用习惯
+
+## 设计规范
+
+### 颜色系统
+```python
+class Colors:
+    # 主色调
+    PRIMARY = "#5E72E4"  # 靛蓝色
+    PRIMARY_LIGHT = "#7B8FF7"
+    PRIMARY_DARK = "#4355B9"
+    
+    # 辅助色
+    SECONDARY = "#FF7D54"  # 珊瑚橙
+    
+    # 功能色
+    SUCCESS = "#2DCE89"  # 成功
+    WARNING = "#FB6340"  # 警告
+    ERROR = "#F5365C"    # 错误
+    INFO = "#11CDEF"     # 信息
+    
+    # 中性色
+    BACKGROUND = "#F8F9FE"  # 背景色
+    SURFACE = "#FFFFFF"     # 表面色
+    TEXT = "#2D3748"       # 主文本
+    TEXT_SECONDARY = "#718096"  # 次要文本
+    BORDER = "#E2E8F0"     # 边框色
+```
+
+### 字体系统
+```python
+class Fonts:
+    # 字体族
+    FAMILY = "Microsoft YaHei"  # 微软雅黑
+    FAMILY_FALLBACK = "SimHei"  # 备用字体
+    
+    # 字号
+    H1 = 24  # 主标题
+    H2 = 20  # 次标题
+    H3 = 16  # 小标题
+    BODY = 14  # 正文
+    SMALL = 12  # 小字
+    
+    # 字重
+    LIGHT = 300
+    REGULAR = 400
+    MEDIUM = 500
+    BOLD = 700
+```
+
+### 间距系统
+```python
+class Spacing:
+    TINY = 4    # 最小间距
+    SMALL = 8   # 小间距
+    BASE = 16   # 基础间距
+    LARGE = 24  # 大间距
+    HUGE = 32   # 最大间距
+```
+
+## 组件规范
+
+### 窗口
+- 主窗口尺寸：1024x768（最小）
+- 对话框尺寸：根据内容自适应，但不超过主窗口的80%
+- 所有窗口必须支持自适应缩放
+
+### 按钮
+- 主要按钮：使用PRIMARY色，圆角4px
+- 次要按钮：使用边框样式，圆角4px
+- 图标按钮：统一使用24x24尺寸的图标
+- 禁用状态：降低透明度至40%
+
+### 输入框
+- 统一高度：32px
+- 内边距：左右12px，上下6px
+- 聚焦状态：PRIMARY色边框
+- 错误状态：ERROR色边框
+
+### 列表/表格
+- 行高：40px
+- 表头背景：BACKGROUND色
+- 隔行变色：使用不同深度的背景色
+- 选中状态：PRIMARY色半透明背景
+
+### 对话框
+- 模态对话框：背景遮罩透明度60%
+- 标题栏高度：48px
+- 内容区内边距：24px
+- 按钮区高度：64px
+
+## 交互规范
+
+### 加载状态
+- 全局加载：使用居中的圆形进度条
+- 局部加载：使用组件内的进度条
+- 长时操作：显示进度百分比和预估时间
+
+### 反馈机制
+- 操作成功：右下角提示，2秒后自动消失
+- 操作失败：对话框提示，需用户确认
+- 需要确认：使用模态对话框，提供确认和取消选项
+
+### 快捷键
+- 保存：Ctrl + S
+- 新建：Ctrl + N
+- 删除：Delete
+- 刷新：F5
+- 帮助：F1
+
+### 动画效果
+- 窗口切换：淡入淡出，持续200ms
+- 列表更新：渐变过渡，持续150ms
+- 按钮点击：缩放反馈，持续100ms
+
+## 特殊状态处理
+
+### 空状态
+- 显示引导性图标
+- 提供明确的操作建议
+- 使用友好的提示文案
+
+### 错误状态
+- 显示具体错误原因
+- 提供可行的解决方案
+- 必要时提供重试选项
+
+### 离线状态
+- 明确提示离线状态
+- 显示可用的离线功能
+- 提供重新连接选项
+
+## 辅助功能
+
+### 可访问性
+- 支持键盘导航
+- 提供快捷键提示
+- 确保足够的颜色对比度
+- 支持屏幕阅读器
+
+### 响应式设计
+- 支持窗口缩放
+- 自适应不同分辨率
+- 保持内容可读性
+- 优化组件布局
+
+## 性能优化
+
+### 界面加载
+- 使用延迟加载
+- 实现资源预加载
+- 优化启动时间
+- 显示加载进度
+
+### 图片处理
+- 使用缓存机制
+- 支持图片压缩
+- 优化加载速度
+- 处理加载失败
+
+### 列表优化
+- 实现虚拟滚动
+- 分页加载数据
+- 优化滚动性能
+- 缓存列表数据
+
+## 参考文档
+- PyQt6官方文档：[PyQt6 Documentation](mdc:https:/www.riverbankcomputing.com/static/Docs/PyQt6)
+- Qt设计规范：[Qt Style](mdc:https:/doc.qt.io/qt-6/style-reference.html)
+- 项目结构：[project_structure.md](mdc:project_structure.md)
+- 技术栈：[tech_stack.md](mdc:tech_stack.md)

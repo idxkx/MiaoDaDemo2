@@ -1,0 +1,74 @@
+---
+description: 项目目录结构和文件组织的规范和约定
+globs: 
+alwaysApply: false
+---
+{
+  "type": "agent_requested",
+  "title": "项目结构与目录规范",
+  "description": "项目目录结构和文件组织的规范和约定"
+}
+
+# 项目结构与目录规范
+
+## 目录结构
+项目分为三个主要部分：
+
+- `backend/` - 后端API服务（Python/FastAPI）
+- `frontend/` - 简单Web前端（HTML/CSS/JavaScript）
+- `models/` - AI模型相关代码
+
+主要入口文件：
+- 后端主入口：[backend/main.py](mdc:backend/main.py)
+- 前端主入口：[frontend/index.html](mdc:frontend/index.html)
+
+## 重要约定
+
+1. **后端代码组织**
+   - API接口定义必须在 `backend/app/api/v1/` 目录下
+   - 数据模型定义必须在 `backend/app/models/` 目录下
+   - 业务逻辑必须在 `backend/app/services/` 目录下
+   - 工具函数必须在 `backend/app/utils/` 目录下
+
+2. **前端代码组织**
+   - HTML页面必须在 `frontend/` 根目录下
+   - CSS样式必须在 `frontend/css/` 目录下
+   - JavaScript脚本必须在 `frontend/js/` 目录下
+   - 静态资源必须在 `frontend/assets/` 目录下
+
+3. **AI模型代码组织**
+   - 服装识别模型相关代码必须在 `models/clothing_recognition/` 目录下
+   - 图像生成模型相关代码必须在 `models/image_generation/` 目录下
+
+## 文件命名规范
+
+1. **后端文件命名**
+   - Python文件名使用下划线命名法（snake_case）
+   - 模块名应使用单数形式（例如 `user.py` 而非 `users.py`）
+
+2. **前端文件命名**
+   - HTML文件使用小写字母，描述页面功能（例如 `index.html`, `closet.html`）
+   - CSS文件使用小写字母（例如 `style.css`, `closet.css`）
+   - JavaScript文件使用小写字母（例如 `main.js`, `api.js`）
+
+## 简化后的技术栈
+
+1. **后端**
+   - FastAPI - 核心Web框架
+   - SQLite - 本地数据库
+   - 内存缓存 - 简化缓存方案
+   - PyTorch - AI模型推理
+
+2. **前端**
+   - 原生HTML/CSS/JavaScript - 不使用复杂框架
+   - Fetch API - 简单API调用
+   - Bootstrap 5 - 简化UI开发（可选）
+
+3. **认证**
+   - 简化为基本用户名/密码认证
+   - JWT - 简单令牌管理
+
+## 重要文件引用
+- 数据库模型设计：[project_structure.md](mdc:project_structure.md)
+- API接口设计：[project_structure.md](mdc:project_structure.md)
+- 用户流程设计：[user_flow.md](mdc:user_flow.md)

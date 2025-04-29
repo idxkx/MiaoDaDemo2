@@ -1,0 +1,222 @@
+---
+description: 后端API设计的关键规范和约定
+globs: 
+alwaysApply: false
+---
+{
+  "type": "agent_requested",
+  "title": "API设计原则",
+  "description": "本文档定义了项目中API设计的核心原则、最佳实践和规范指南，确保API的一致性、可用性和可维护性。",
+  "version": "1.0.0",
+  "author": "MiaoDao Team",
+  "categories": [
+    "api",
+    "design",
+    "client-server"
+  ],
+  "tags": [
+    "pyqt6",
+    "desktop-app",
+    "client-server",
+    "local-storage",
+    "sync",
+    "offline-first"
+  ],
+  "scope": {
+    "includes": [
+      "client/**/*.py",
+      "backend/**/*.py"
+    ],
+    "excludes": [
+      "**/__pycache__/**",
+      "**/tests/**"
+    ]
+  },
+  "priority": "high",
+  "lastUpdated": "2024-03-13"
+}
+
+# API设计规范
+
+## 核心原则
+
+### 架构设计
+- **CS架构模式**: 采用桌面客户端-服务器架构
+- **本地优先原则**: 优先使用本地数据和处理
+- **离线支持**: 核心功能支持离线操作
+- **数据同步**: 本地数据与服务器定期同步
+
+### 通信规范
+- **数据格式**: 统一使用JSON
+- **版本控制**: 使用`/api/v1/`形式
+- **状态码**: 遵循HTTP标准状态码
+- **错误处理**: 统一的错误响应格式
+
+## 接口设计
+
+### 本地接口
+```python
+class LocalDataManager:
+    """本地数据管理接口"""
+    def get_local_data(self, key: str) -> dict:
+        """获取本地数据"""
+        pass
+    
+    def save_local_data(self, key: str, data: dict) -> bool:
+        """保存本地数据"""
+        pass
+    
+    def sync_with_server(self) -> bool:
+        """与服务器同步数据"""
+        pass
+```
+
+### 网络接口
+```python
+class NetworkManager:
+    """网络请求管理接口"""
+    def request(self, method: str, endpoint: str, data: dict = None) -> dict:
+        """发送网络请求"""
+        pass
+    
+    def handle_offline_mode(self) -> None:
+        """处理离线模式"""
+        pass
+```
+
+### 数据同步
+```python
+class SyncManager:
+    """数据同步管理接口"""
+    def sync_strategy(self) -> str:
+        """同步策略"""
+        return "定时同步" # 或 "手动同步" 或 "变更同步"
+    
+    def conflict_resolution(self) -> str:
+        """冲突解决策略"""
+        return "本地优先" # 或 "服务器优先" 或 "用户选择"
+```
+
+## 错误处理
+
+### 错误类型
+```python
+ERROR_TYPES = {
+    "LOCAL": "本地数据错误",
+    "NETWORK": "网络通信错误",
+    "SYNC": "数据同步错误",
+    "AUTH": "认证授权错误"
+}
+```
+
+### 错误响应
+```python
+ERROR_RESPONSE = {
+    "status": "error",
+    "code": "ERROR_CODE",
+    "message": "错误描述",
+    "solution": "建议解决方案"
+}
+```
+
+## 安全规范
+
+### 数据安全
+- 本地数据加密存储
+- 敏感信息脱敏处理
+- 定期数据备份
+
+### 通信安全
+- HTTPS加密传输
+- Token认证机制
+- 数据签名验证
+
+## 性能优化
+
+### 本地优化
+- 数据缓存机制
+- 延迟加载策略
+- 定期清理机制
+
+### 网络优化
+- 请求合并处理
+- 增量数据同步
+- 断点续传支持
+
+## 测试要求
+
+### 本地测试
+- 数据存取测试
+- 离线功能测试
+- 性能压力测试
+
+### 网络测试
+- 接口功能测试
+- 同步机制测试
+- 弱网络测试
+
+## 命名与方法
+
+### API端点命名
+- **本地数据接口**:
+  ```python
+  class LocalStorage:
+      def get_clothes(self) -> list  # 获取本地服装数据
+      def save_clothes(self, data: dict)  # 保存服装数据
+      def delete_clothes(self, id: int)  # 删除服装数据
+  ```
+
+- **网络接口命名**:
+  - 使用复数名词和kebab-case（如`/api/v1/clothing-items`）
+  - 本地缓存键使用相同命名规则保持一致性
+
+### 操作方法
+- **本地操作**:
+  - `get_xxx`: 获取本地数据
+  - `save_xxx`: 保存/更新本地数据
+  - `delete_xxx`: 删除本地数据
+  - `sync_xxx`: 同步指定数据
+
+- **网络操作**:
+  - `GET`: 从服务器获取数据（支持离线缓存）
+  - `POST`: 创建新数据（支持离线队列）
+  - `PUT/PATCH`: 更新数据（支持本地优先）
+  - `DELETE`: 删除数据（支持本地优先）
+
+### 状态处理
+- **本地状态**:
+  ```python
+  LOCAL_STATUS = {
+      "SYNCED": "已同步",
+      "PENDING": "待同步",
+      "CONFLICT": "冲突",
+      "OFFLINE": "离线"
+  }
+  ```
+
+- **网络状态码**:
+  - `2xx`: 成功
+  - `4xx`: 客户端错误
+  - `5xx`: 服务器错误
+  - 离线状态特殊处理
+
+## 示例
+```
+# 查询服装列表
+GET /api/v1/clothing-items
+
+# 创建新服装
+POST /api/v1/clothing-items
+
+# 更新服装
+PUT /api/v1/clothing-items/123
+
+# 删除服装
+DELETE /api/v1/clothing-items/123
+```
+
+## 相关文档
+- API端点列表: [project_structure.md](mdc:project_structure.md)
+- 技术栈: [tech_stack.md](mdc:tech_stack.md)
+
+

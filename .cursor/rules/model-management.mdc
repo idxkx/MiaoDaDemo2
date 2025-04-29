@@ -1,0 +1,154 @@
+---
+description: AI模型加载、管理与切换的规范和约定
+globs: 
+alwaysApply: false
+---
+{
+  "type": "agent_requested",
+  "title": "模型管理规范",
+  "description": "本文档定义了项目中AI模型的加载、管理、切换和版本控制的标准流程和最佳实践，确保模型管理的规范性和可靠性。",
+  "version": "1.0.0",
+  "author": "MiaoDao Team",
+  "categories": [
+    "ai",
+    "model-management",
+    "operations"
+  ],
+  "tags": [
+    "model-versioning",
+    "model-loading",
+    "model-switching",
+    "performance",
+    "monitoring"
+  ],
+  "scope": {
+    "includes": [
+      "app/services/model/**/*.py",
+      "models/**/*",
+      "tools/model_tools/**/*.py"
+    ],
+    "excludes": [
+      "**/__pycache__/**",
+      "**/tests/**",
+      "**/temp/**"
+    ]
+  },
+  "priority": "high",
+  "lastUpdated": "2024-03-13"
+}
+
+# 模型管理规范
+
+## 当前可用模型
+
+目前项目中有两个服装识别模型:
+
+1. `MD_resnet50_40_32_10e4_clothes_model` - 主要服装识别模型（基于ResNet50）
+2. `my_clothes_model` - 备用服装识别模型
+
+这些模型基于 `Anno_fine` 数据集训练，具有以下能力：
+
+### 服装分类能力
+- 支持50种服装类别，分为3大类：
+  - 上装（20种）：Anorak、Blazer、Blouse等
+  - 下装（16种）：Capris、Chinos、Culottes等
+  - 连身装（14种）：Caftan、Cape、Coat等
+
+### 服装属性识别
+支持26种属性，分为6大类：
+1. 图案类型
+   - 花卉、图案、条纹、刺绣
+   - 褶皱、纯色、格子
+2. 袖长类型
+   - 长袖、短袖、无袖
+3. 长度类型
+   - 长款、短款、非连衣裙
+4. 领型
+   - 圆领、V领、方领、无领
+5. 材质
+   - 牛仔、雪纺、棉质
+   - 皮革、人造革、针织
+6. 合身度
+   - 紧身、宽松、常规
+
+### 数据集规模
+- 训练集：14001张图片
+- 验证集：2001张图片
+- 测试集：4001张图片
+
+## 动态模型加载
+
+本项目支持动态加载位于 `models/` 目录下的服装识别模型。服务器启动时会：
+
+1. 扫描 `models/` 目录下的所有子文件夹。
+2. 将每个子文件夹的名称视为一个可用的模型版本。
+3. 读取 `.env` 文件中的 `ACTIVE_CLOTHING_MODEL` 环境变量。
+4. 加载由 `ACTIVE_CLOTHING_MODEL` 指定的模型进行推理。
+
+## 添加新模型
+
+要添加一个新的模型版本：
+
+1. 在 `models/` 目录下创建一个新的子文件夹，名称应清晰标识模型版本（例如 `my_model_v3`）。
+2. 将该模型的所有相关文件放入此子文件夹：
+   - 模型权重文件
+   - 配置文件
+   - 标注数据（如有必要）
+3. （可选）更新 `.env` 文件中的 `ACTIVE_CLOTHING_MODEL` 变量为新模型的文件夹名称。
+4. 重启后端服务器以使更改生效。
+
+## 模型使用建议
+
+### 衣橱管理系统
+- 使用模型的服装分类能力进行自动分类
+- 利用属性识别进行详细标注
+- 支持按类别、属性的多维度筛选
+
+### 穿搭推荐系统
+- 基于服装类型进行合理搭配
+- 考虑材质、图案的协调性
+- 根据袖长、材质推荐适合的季节
+
+### 性能优化
+- 使用批量处理提高识别效率
+- 实现结果缓存减少重复计算
+- 支持异步处理避免界面卡顿
+
+## 选择激活模型
+
+1. 编辑项目根目录下的 `.env` 文件。
+2. 设置 `ACTIVE_CLOTHING_MODEL` 变量的值为您想使用的模型文件夹名称。
+   ```dotenv
+   ACTIVE_CLOTHING_MODEL=MD_resnet50_40_32_10e4_clothes_model
+   ```
+3. 重启后端服务器。
+
+## 相关API
+
+- `GET /api/v1/models/available`: 返回所有可用的模型版本列表。
+- `GET /api/v1/models/current`: 返回当前使用的模型名称。
+- `POST /api/v1/clothes/recognize`: 服装识别接口，返回类别和属性。
+- `POST /api/v1/outfits/recommend`: 穿搭推荐接口，基于识别结果。
+
+## 重要文件引用
+
+- AI模型设计文档: [ai_models_design.md](mdc:ai_models_design.md)
+- 项目结构文档: [project_structure.md](mdc:project_structure.md)
+- 项目说明: [README.md](mdc:README.md)
+
+## 注意事项
+
+1. 模型管理
+   - 确保模型文件夹名称易于理解
+   - 妥善保管训练数据和标注文件
+   - 定期备份模型文件
+
+2. 性能考虑
+   - 模型加载发生在启动时
+   - 切换模型需要重启服务器
+   - 考虑实现模型预热机制
+
+3. 错误处理
+   - 环境变量缺失时使用默认模型
+   - 模型加载失败时提供明确错误信息
+   - 支持降级到备用模型

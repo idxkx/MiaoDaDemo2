@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    volumes:
+      - ./backend:/app/backend
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+      - SQLITE_DB=/data/app.db
+    ports:
+      - "5000:5000"
+    command: python backend/main.py
+
+  models:
+    build:
+      context: .
+      dockerfile: models/Dockerfile
+    volumes:
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  data: 

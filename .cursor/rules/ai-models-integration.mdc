@@ -1,0 +1,70 @@
+---
+description: AI模型集成的关键规范和约定
+globs: 
+alwaysApply: false
+---
+{
+  "type": "agent_requested",
+  "title": "AI模型集成规范",
+  "description": "本文档定义了项目中AI模型集成的标准流程、接口规范和最佳实践，确保AI功能的可靠性、性能和可维护性。",
+  "version": "1.0.0",
+  "author": "MiaoDao Team",
+  "categories": [
+    "ai",
+    "integration",
+    "backend"
+  ],
+  "tags": [
+    "machine-learning",
+    "model-serving",
+    "inference",
+    "performance",
+    "monitoring"
+  ],
+  "scope": {
+    "includes": [
+      "backend/app/services/ai/**/*.py",
+      "backend/app/models/**/*.py",
+      "models/**/*.py"
+    ],
+    "excludes": [
+      "**/__pycache__/**",
+      "**/tests/**",
+      "**/temp/**"
+    ]
+  },
+  "priority": "high",
+  "lastUpdated": "2024-03-13"
+}
+
+<!-- AI Models Integration -->
+
+<!-- Standards and guidelines for AI model integration -->
+
+# AI模型集成规范
+
+## 核心位置
+
+- **模型目录**: `models/` 目录下存放所有服装识别模型
+- **服务封装**: `backend/app/services/` (clothing_recognition.py, llm_service.py, image_generation.py)
+
+## 集成原则
+
+- **异步处理**: 耗时AI推理通过Celery异步处理
+- **错误处理**: 实现超时(30秒)、重试和回退机制
+- **配置**: API密钥通过环境变量配置，不硬编码
+- **日志**: 记录模型调用耗时和错误
+
+## 核心模型
+
+- **服装识别**: 
+  - 当前模型: `MD_resnet50_40_32_10e4_clothes_model` 和 `my_clothes_model`
+  - 基于ResNet50架构
+  - 模型选择通过`.env`中的`ACTIVE_CLOTHING_MODEL`配置
+- **DeepSeek**: 生成穿搭策略，提示词存放在`backend/app/core/prompts/`
+- **图像生成**: Stable Diffusion + ControlNet，GPU实例部署
+
+## 参考文档
+
+- 模型管理: [model-management.mdc](mdc:.cursor/rules/model-management.mdc)
+- 模型设计: [ai_models_design.md](mdc:ai_models_design.md)
