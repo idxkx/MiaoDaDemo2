@@ -1,0 +1,25 @@
+# GUI框架
+PyQt6==6.6.1
+PyQt6-Qt6==6.6.1
+PyQt6-sip==13.6.0
+
+# 数据库
+SQLAlchemy==2.0.27
+
+# AI相关
+torch==2.2.0
+torchvision==0.17.0
+numpy==1.26.4
+Pillow==10.2.0
+opencv-python-headless==4.9.0.80
+
+# 工具库
+python-dotenv==1.0.1
+coloredlogs==15.0.1
+tqdm==4.66.2
+
+# 开发工具
+pytest==8.0.0
+black==24.1.1
+flake8==7.0.0
+mypy==1.8.0 

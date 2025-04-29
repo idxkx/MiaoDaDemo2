@@ -1,0 +1,93 @@
+/* 主窗口样式 */
+QMainWindow {
+    background-color: #f5f5f5;
+}
+
+/* 菜单栏样式 */
+QMenuBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+QMenuBar::item {
+    padding: 8px 12px;
+    background-color: transparent;
+}
+
+QMenuBar::item:selected {
+    background-color: #e0e0e0;
+}
+
+/* 工具栏样式 */
+QToolBar {
+    background-color: #ffffff;
+    border: none;
+    spacing: 3px;
+    padding: 3px;
+}
+
+QToolButton {
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+}
+
+QToolButton:hover {
+    background-color: #e0e0e0;
+}
+
+/* 状态栏样式 */
+QStatusBar {
+    background-color: #ffffff;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* 按钮样式 */
+QPushButton {
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+QPushButton:hover {
+    background-color: #1976d2;
+}
+
+QPushButton:pressed {
+    background-color: #0d47a1;
+}
+
+/* 输入框样式 */
+QLineEdit {
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background-color: white;
+}
+
+QLineEdit:focus {
+    border: 1px solid #2196f3;
+}
+
+/* 列表视图样式 */
+QListView {
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+QListView::item {
+    padding: 8px;
+}
+
+QListView::item:selected {
+    background-color: #e3f2fd;
+    color: #2196f3;
+}
+
+/* 标签样式 */
+QLabel {
+    color: #333333;
+} 

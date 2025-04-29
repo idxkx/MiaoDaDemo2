@@ -1,35 +1,134 @@
-# Environment variables
-.env
-
-# Python
+# Python环境
 __pycache__/
 *.py[cod]
 *$py.class
-venv/
+*.so
+.Python
+.env
 .venv/
+venv/
+ENV/
+.env.*
+pip-log.txt
+pip-delete-this-directory.txt
 
-# IDE / Editor
-.vscode/
+# Python打包
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE/编辑器
 .idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.bak
+*.orig
+*~
+.project
+.pydevproject
+.settings/
+.vs/
 
-# OS generated files
+# 操作系统
 .DS_Store
 Thumbs.db
+*.db
+desktop.ini
+$RECYCLE.BIN/
+.directory
+
+# 项目特定
+## 存储目录 - 保留结构但忽略内容
+storage/*
+!storage/.gitkeep
+!storage/*/
+storage/*/* 
+!storage/*/.gitkeep
+
+## 日志文件
+*.log
+logs/
+log/
+
+## 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+## AI模型文件
+models/*
+!models/.gitkeep
+*.pth
+*.onnx
+*.pt
+*.h5
+*.tflite
+*.pb
+*.ckpt
+*.weights
+*.bin
+
+## Qt相关
+*.qmlc
+*.jsc
+*.qm
+*.ts.new
+*.qmlproject.user
+*.pro.user*
+*.qbs.user*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+.qmake.stash
+.qmake.cache
+
+## 临时文件
+*.tmp
+*.temp
+*.bak
+*.swp
+*.cache
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+## 本地配置文件
+config.local.ini
+*.local.json
+*.local.yaml
+*.local.yml
+
+## 其他
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.pdf
+*.doc*
+*.xls*
+*.ppt*
 
 # Docker
-docker-compose.override.yml
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# Logs
-logs/
-*.log
-
-# Storage
-storage/
-backend/storage/
-**/storage/images/
-**/storage/temp/ 
+docker-compose.override.yml 
