@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 import re
 
@@ -101,4 +101,154 @@ class Style(ValueObject):
         if not self.name:
             raise ValueError("Style name cannot be empty")
         if not self.tags:
-            raise ValueError("Style must have at least one tag") 
+            raise ValueError("Style must have at least one tag")
+
+@dataclass(frozen=True)
+class Size(ValueObject):
+    """尺码值对象"""
+    value: str  # S, M, L, XL等
+    
+    def __post_init__(self):
+        if not self.value:
+            raise ValueError("Size value cannot be empty")
+        if not re.match(r"^(XS|S|M|L|XL|XXL|XXXL)$", self.value):
+            raise ValueError("Invalid size value")
+
+class SeasonEnum(Enum):
+    """季节枚举"""
+    SPRING = "spring"
+    SUMMER = "summer"
+    AUTUMN = "autumn"
+    WINTER = "winter"
+
+class WeatherEnum(Enum):
+    """天气枚举"""
+    SUNNY = "sunny"
+    CLOUDY = "cloudy"
+    RAINY = "rainy"
+    SNOWY = "snowy"
+    WINDY = "windy"
+    HOT = "hot"
+    COLD = "cold"
+
+class OccasionEnum(Enum):
+    """场合枚举"""
+    DAILY = "daily"
+    WORK = "work"
+    FORMAL = "formal"
+    PARTY = "party"
+    SPORT = "sport"
+    DATING = "dating"
+    TRAVEL = "travel"
+    HOME = "home"
+
+@dataclass(frozen=True)
+class Season(ValueObject):
+    """季节值对象"""
+    value: SeasonEnum
+    temperature_range: tuple[float, float]  # (最低温度, 最高温度)
+    humidity_range: tuple[float, float]  # (最低湿度%, 最高湿度%)
+    
+    def __post_init__(self):
+        if not isinstance(self.value, SeasonEnum):
+            object.__setattr__(self, 'value', SeasonEnum(self.value))
+        
+        min_temp, max_temp = self.temperature_range
+        if min_temp >= max_temp:
+            raise ValueError("最低温度必须小于最高温度")
+        
+        min_humidity, max_humidity = self.humidity_range
+        if not (0 <= min_humidity <= max_humidity <= 100):
+            raise ValueError("湿度必须在0-100%之间")
+
+    @property
+    def name(self) -> str:
+        return self.value.value
+
+    def is_suitable_temperature(self, temperature: float) -> bool:
+        """判断温度是否适合当前季节"""
+        min_temp, max_temp = self.temperature_range
+        return min_temp <= temperature <= max_temp
+
+    def is_suitable_humidity(self, humidity: float) -> bool:
+        """判断湿度是否适合当前季节"""
+        min_humidity, max_humidity = self.humidity_range
+        return min_humidity <= humidity <= max_humidity
+
+@dataclass(frozen=True)
+class Weather(ValueObject):
+    """天气值对象"""
+    value: WeatherEnum
+    temperature: float  # 温度
+    humidity: float  # 湿度
+    wind_speed: float  # 风速(m/s)
+    precipitation: float  # 降水量(mm)
+    
+    def __post_init__(self):
+        if not isinstance(self.value, WeatherEnum):
+            object.__setattr__(self, 'value', WeatherEnum(self.value))
+        
+        if not (-50 <= self.temperature <= 50):
+            raise ValueError("温度必须在-50到50度之间")
+        
+        if not (0 <= self.humidity <= 100):
+            raise ValueError("湿度必须在0-100%之间")
+        
+        if self.wind_speed < 0:
+            raise ValueError("风速不能为负")
+        
+        if self.precipitation < 0:
+            raise ValueError("降水量不能为负")
+
+    @property
+    def name(self) -> str:
+        return self.value.value
+
+    def is_suitable_for_outdoor(self) -> bool:
+        """判断是否适合户外活动"""
+        return (
+            self.value not in [WeatherEnum.RAINY, WeatherEnum.SNOWY] and
+            self.wind_speed < 10 and
+            self.precipitation < 5
+        )
+
+@dataclass(frozen=True)
+class Occasion(ValueObject):
+    """场合值对象"""
+    value: OccasionEnum
+    dress_code: str  # 着装要求
+    formality_level: int  # 正式程度(1-5)
+    suitable_time: List[str]  # 适合的时间段
+    indoor: bool  # 是否室内场合
+    
+    def __post_init__(self):
+        if not isinstance(self.value, OccasionEnum):
+            object.__setattr__(self, 'value', OccasionEnum(self.value))
+        
+        if not self.dress_code:
+            raise ValueError("着装要求不能为空")
+        
+        if not (1 <= self.formality_level <= 5):
+            raise ValueError("正式程度必须在1-5之间")
+        
+        if not self.suitable_time:
+            raise ValueError("适合的时间段不能为空")
+
+    @property
+    def name(self) -> str:
+        return self.value.value
+        
+    def is_formal(self) -> bool:
+        """判断是否为正式场合"""
+        return self.formality_level >= 4
+        
+    def is_suitable_time(self, time: datetime) -> bool:
+        """判断给定时间是否适合该场合"""
+        current_hour = time.hour
+        
+        for time_range in self.suitable_time:
+            start_hour, end_hour = map(int, time_range.split('-'))
+            if start_hour <= current_hour <= end_hour:
+                return True
+                
+        return False 
