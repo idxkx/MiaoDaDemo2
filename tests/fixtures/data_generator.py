@@ -12,6 +12,8 @@ import random
 from datetime import datetime, timedelta
 from typing import List, Dict
 from uuid import uuid4
+import dataclasses
+from uuid import UUID
 
 from src.domain.model.value_objects import (
     ImageMetadata,
@@ -20,7 +22,8 @@ from src.domain.model.value_objects import (
     Price,
     Brand,
     Material,
-    Style
+    Style,
+    Size
 )
 
 # 模拟数据配置
@@ -143,42 +146,67 @@ def generate_clothing_items(category_id: str, count: int = 5) -> List[Dict]:
         material = random.choice(config["materials"])
         price = random.choice(config["prices"])
         
-        item = {
-            "id": str(uuid4()),
+        # Create Value Objects first
+        color_vo = Color(name=color, hex_code="#FFFFFF")
+        brand_vo = Brand(name=brand, country="未知")
+        material_vo = Material(name=material, composition={material: 100.0})
+        price_vo = Price(amount=price, currency="CNY")
+        image_metadata_vo = ImageMetadata(
+            width=800,
+            height=1200,
+            format="JPEG",
+            size=random.randint(100000, 500000),
+            created_at=datetime.now(),
+            location=f"storage/images/{uuid4()}.jpg"
+        )
+        size_vo = Size("M")
+        # Assuming default Dimension and Style VOs are needed
+        dimension_vo = Dimension(size="M") # Default Dimension
+        style_vo = Style(name="休闲", tags=["日常"]) # Default Style
+
+        item_data = {
+            "id": uuid4(),
             "name": f"{brand}{category_name}",
             "category_id": category_id,
-            "color": Color(color).to_dict(),
-            "pattern": pattern,
-            "brand": Brand(brand, "").to_dict(),
-            "material": Material(material).to_dict(),
-            "price": Price(price, "CNY").to_dict(),
-            "image_metadata": ImageMetadata(
-                path=f"storage/images/{uuid4()}.jpg",
-                size=random.randint(100000, 500000),
-                width=800,
-                height=1200,
-                format="JPEG"
-            ).to_dict(),
+            "color": dataclasses.asdict(color_vo),
+            "brand": dataclasses.asdict(brand_vo),
+            "material": dataclasses.asdict(material_vo),
+            "price": dataclasses.asdict(price_vo),
+            "image_metadata": dataclasses.asdict(image_metadata_vo),
+            "dimension": dataclasses.asdict(dimension_vo),
+            "style": dataclasses.asdict(style_vo),
+            "description": f"一件漂亮的{brand}{category_name}",
+            "tags": [],
             "is_favorite": random.choice([True, False]),
             "version": 1,
             "created_at": datetime.now(),
             "updated_at": datetime.now()
         }
-        items.append(item)
+        # Note: Check if the Model needs wardrobe_id, if so, add it here.
+        # Assuming populate_test_data handles adding to session and wardrobe association
+        items.append(item_data)
     return items
 
-def generate_outfits(clothing_items: List[Dict], count: int = 3) -> List[Dict]:
+def generate_outfits(clothing_items: List[Dict], owner_id: UUID, count: int = 3) -> List[Dict]:
     """生成穿搭数据"""
     outfits = []
     occasions = ["daily", "work", "party", "sport"]
     seasons = ["spring", "summer", "autumn", "winter"]
     weathers = ["sunny", "rainy", "cloudy", "snowy"]
     
+    if len(clothing_items) < 2:
+        print("Warning: Not enough clothing items to generate outfits. Skipping outfit generation.")
+        return [] # Return empty list if not enough items
+
     for _ in range(count):
-        outfit_items = random.sample(clothing_items, random.randint(2, 4))
+        # Ensure sample size is not larger than population
+        max_sample_size = min(4, len(clothing_items))
+        sample_size = random.randint(2, max_sample_size) 
+        outfit_items_sample = random.sample(clothing_items, sample_size) 
         outfit = {
-            "id": str(uuid4()),
+            "id": uuid4(), # Use UUID object directly
             "name": f"搭配{_ + 1}",
+            "owner_id": owner_id, # Use the provided owner_id
             "description": f"这是一套{random.choice(['休闲', '正式', '运动'])}搭配",
             "occasion": random.choice(occasions),
             "season": random.choice(seasons),
@@ -190,11 +218,11 @@ def generate_outfits(clothing_items: List[Dict], count: int = 3) -> List[Dict]:
             "updated_at": datetime.now(),
             "items": [
                 {
-                    "outfit_id": None,  # 将在保存时设置
+                    "outfit_id": None,  # Will be set during saving
                     "item_id": item["id"],
                     "layer": idx + 1
                 }
-                for idx, item in enumerate(outfit_items)
+                for idx, item in enumerate(outfit_items_sample)
             ]
         }
         outfits.append(outfit)

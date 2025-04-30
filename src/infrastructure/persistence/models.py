@@ -92,4 +92,7 @@ class CategoryModel(Base):
     items = relationship("ClothingItemModel", back_populates="category")
     wardrobe = relationship("WardrobeModel", back_populates="categories")
     parent = relationship("CategoryModel", remote_side=[id])
-    children = relationship("CategoryModel") 
+    children = relationship("CategoryModel")
+
+# Print Base ID at the end of the file to see its ID upon module import
+print(f"[models.py] Base object id after definitions: {id(Base)}") 
