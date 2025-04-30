@@ -6,15 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from domain.repositories.interfaces import (
+from src.domain.repositories.interfaces import (
     WardrobeRepository,
     OutfitRepository,
     ClothingItemRepository,
     CategoryRepository
 )
-from domain.model.aggregates import Wardrobe, Outfit
-from domain.model.entities import ClothingItem, Category
-from domain.model.value_objects import (
+from src.domain.model.aggregates import Wardrobe, Outfit
+from src.domain.model.entities import ClothingItem, Category
+from src.domain.model.value_objects import (
     ImageMetadata,
     Dimension,
     Color,
