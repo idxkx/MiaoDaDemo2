@@ -5,6 +5,11 @@ PyQt6-sip==13.6.0
 
 # 数据库
 SQLAlchemy==2.0.27
+aiosqlite==0.21.0
+
+# 异步IO
+aiofiles==24.1.0
+anyio==4.2.0
 
 # AI相关
 torch==2.2.0
@@ -12,6 +17,7 @@ torchvision==0.17.0
 numpy==1.26.4
 Pillow==10.2.0
 opencv-python-headless==4.9.0.80
+timm
 
 # 工具库
 python-dotenv==1.0.1
@@ -20,6 +26,10 @@ tqdm==4.66.2
 
 # 开发工具
 pytest==8.0.0
+pytest-asyncio==0.23.5
 black==24.1.1
 flake8==7.0.0
-mypy==1.8.0 
+mypy==1.8.0
+
+# 数据校验 (如果用到)
+pydantic>=2.0 # 使用 V2 版本 

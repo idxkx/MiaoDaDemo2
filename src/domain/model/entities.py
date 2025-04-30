@@ -64,6 +64,36 @@ class Tag(Entity):
         self._description = description
         self._version += 1
 
+    def to_dict(self) -> dict:
+        """将 Tag 对象序列化为字典"""
+        return {
+            "id": str(self.id), # 将 UUID 转为字符串
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "version": self.version, # 通常不需要保存 version，但可以包含
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Tag':
+        """从字典反序列化为 Tag 对象"""
+        tag = cls(
+            id=UUID(data['id']), # 从字符串转回 UUID
+            name=data['name'],
+            category=data['category'],
+            description=data.get('description')
+        )
+        # 可选：恢复时间戳和版本（如果保存了）
+        if 'created_at' in data:
+            tag._created_at = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data:
+            tag._updated_at = datetime.fromisoformat(data['updated_at'])
+        if 'version' in data:
+             tag._version = data['version']
+        return tag
+
 class ClothingItem(Entity):
     """衣物实体"""
     def __init__(
@@ -172,6 +202,80 @@ class ClothingItem(Entity):
         """更新描述"""
         self._description = description
         self._version += 1
+
+    def to_dict(self) -> dict:
+        """将 ClothingItem 对象（包括 Tag）序列化为字典"""
+        # 注意：Value Objects (Color, Size, Brand, Material) 也需要 to_dict
+        # 这里暂时假设它们有 .value 属性或直接可序列化
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "category_id": str(self.category_id),
+            # 假设值对象有 .value 属性或可直接序列化
+            "color": self.color.to_dict() if hasattr(self.color, 'to_dict') else getattr(self.color, 'value', str(self.color)),
+            "size": self.size.to_dict() if hasattr(self.size, 'to_dict') else getattr(self.size, 'value', str(self.size)),
+            "brand": self.brand.to_dict() if hasattr(self.brand, 'to_dict') else getattr(self.brand, 'value', str(self.brand)),
+            "material": self.material.to_dict() if hasattr(self.material, 'to_dict') else getattr(self.material, 'value', str(self.material)),
+            "purchase_date": self.purchase_date.isoformat() if self.purchase_date else None,
+            "price": self.price,
+            "description": self.description,
+            "image_url": self.image_url,
+            "is_favorite": self.is_favorite,
+            "tags": [tag.to_dict() for tag in self._tags], # 序列化 Tag 列表
+            "version": self.version, 
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat()
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'ClothingItem':
+        """从字典反序列化为 ClothingItem 对象（包括 Tag）"""
+        # 注意：Value Objects 需要从字典或值重建
+        # 这里简化处理，假设可以直接从 data 中的值创建或需要 from_dict
+        color_val = data.get('color')
+        size_val = data.get('size')
+        brand_val = data.get('brand')
+        material_val = data.get('material')
+        
+        # 假设值对象可以直接通过值初始化或有 from_dict
+        color = Color.from_dict(color_val) if isinstance(color_val, dict) and hasattr(Color, 'from_dict') else Color(color_val) if color_val else Color("")
+        size = Size.from_dict(size_val) if isinstance(size_val, dict) and hasattr(Size, 'from_dict') else Size(size_val) if size_val else Size("")
+        brand = Brand.from_dict(brand_val) if isinstance(brand_val, dict) and hasattr(Brand, 'from_dict') else Brand(brand_val) if brand_val else Brand("")
+        material = Material.from_dict(material_val) if isinstance(material_val, dict) and hasattr(Material, 'from_dict') else Material(material_val) if material_val else Material("")
+
+        purchase_date_obj = None
+        if data.get('purchase_date'):
+            try:
+                purchase_date_obj = datetime.fromisoformat(data['purchase_date'])
+            except (ValueError, TypeError):
+                pass # 忽略无效日期格式
+                
+        item = cls(
+            id=UUID(data['id']),
+            name=data['name'],
+            category_id=UUID(data['category_id']),
+            color=color,
+            size=size,
+            brand=brand,
+            material=material,
+            purchase_date=purchase_date_obj,
+            price=data.get('price', 0.0),
+            description=data.get('description'),
+            image_url=data.get('image_url')
+        )
+        item._is_favorite = data.get('is_favorite', False)
+        # 反序列化 Tag 列表
+        item._tags = [Tag.from_dict(tag_data) for tag_data in data.get('tags', [])]
+        
+        # 可选：恢复时间戳和版本
+        if 'created_at' in data:
+            item._created_at = datetime.fromisoformat(data['created_at'])
+        if 'updated_at' in data:
+            item._updated_at = datetime.fromisoformat(data['updated_at'])
+        if 'version' in data:
+             item._version = data['version']
+             
+        return item
 
 class Category(Entity):
     """分类实体"""
@@ -327,6 +431,87 @@ class User(Entity):
         """记录登录"""
         self._last_login = datetime.now()
         self._version += 1
+
+    def to_dict(self) -> dict:
+        """将 User 对象转换为字典，用于持久化"""
+        return {
+            "id": str(self.id), # UUID 转字符串
+            "username": self.username,
+            "email": self.email,
+            "password_hash": self._password_hash, # 注意：密码哈希应保密
+            "nickname": self.nickname,
+            "avatar_url": self.avatar_url,
+            "gender": self.gender,
+            # 日期时间转 ISO 格式字符串
+            "birth_date": self.birth_date.isoformat() if self.birth_date else None,
+            "is_active": self.is_active,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+            "preferences": self.preferences,
+            "version": self.version,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'User':
+        """从字典创建 User 对象"""
+        # 将字符串转回 UUID 和 datetime
+        user_id = uuid4() # 默认生成新ID
+        if "id" in data and data["id"]:
+            try:
+                user_id = UUID(data["id"])
+            except ValueError:
+                print(f"警告: 无效的用户ID格式 '{data['id']}'，将生成新ID。")
+
+        birth_date = None
+        if "birth_date" in data and data["birth_date"]:
+            try:
+                birth_date = datetime.fromisoformat(data["birth_date"])
+            except (ValueError, TypeError):
+                 print(f"警告: 无法解析生日日期 '{data['birth_date']}'")
+
+        last_login = None
+        if "last_login" in data and data["last_login"]:
+             try:
+                 last_login = datetime.fromisoformat(data["last_login"])
+             except (ValueError, TypeError):
+                 print(f"警告: 无法解析上次登录日期 '{data['last_login']}'")
+
+        created_at = datetime.now() # 默认
+        if "created_at" in data and data["created_at"]:
+             try:
+                 created_at = datetime.fromisoformat(data["created_at"])
+             except (ValueError, TypeError):
+                 print(f"警告: 无法解析创建日期 '{data['created_at']}'")
+
+        updated_at = datetime.now() # 默认
+        if "updated_at" in data and data["updated_at"]:
+            try:
+                updated_at = datetime.fromisoformat(data["updated_at"])
+            except (ValueError, TypeError):
+                 print(f"警告: 无法解析更新日期 '{data['updated_at']}'")
+
+        # 使用 ** 解包来传递参数，对于 User 没有的键会自动忽略 (如果 __init__ 允许)
+        # 但最好还是显式传递已知参数
+        user = cls(
+            id=user_id,
+            username=data.get("username", "unknown_user"),
+            email=data.get("email", ""),
+            password_hash=data.get("password_hash", ""),
+            nickname=data.get("nickname"),
+            avatar_url=data.get("avatar_url"),
+            gender=data.get("gender"),
+            birth_date=birth_date
+        )
+        # 恢复内部状态
+        user._is_active = data.get("is_active", True)
+        user._last_login = last_login
+        user._preferences = data.get("preferences", {})
+        user._version = data.get("version", 0)
+        user._created_at = created_at # 设置从数据加载的创建时间
+        user._updated_at = updated_at # 设置从数据加载的更新时间
+
+        return user
 
 class Comment(Entity):
     """评论实体"""

@@ -2,6 +2,13 @@
 
 一款基于Python和PyQt6开发的智能穿搭推荐桌面应用程序，集成AI技术，帮助用户管理个人衣橱并获取个性化穿搭建议。
 
+<!-- 
+规则文件使用指南:
+本项目使用.cursor/rules/目录下的MDC规则文件定义开发规范
+在开发过程中请遵循相应规则，可通过注释形式引用规则
+主要规则包括：development-experience, project-structure, api-design-principles, ddd-principles等
+-->
+
 ## 文档导航
 
 - [开发计划](docs/development_plan.md) - 项目开发规划和任务列表
@@ -12,6 +19,8 @@
 - [用户流程](docs/user_flow.md) - 用户使用流程和场景
 - [开发变更](docs/development_changes.md) - 开发过程中的重要变更记录
 - [DDD实现指南](docs/ddd_implementation_guide.md) - 领域驱动设计实现指南
+- [存储服务](docs/storage_services.md) - 图片和文件存储服务说明
+- [规则指南](docs/rules_guide.md) - 项目规则使用指南
 
 ## 主要功能
 
@@ -22,6 +31,7 @@
 - 💾 本地数据存储：保护用户隐私，支持离线使用
 - 🎨 美观的界面：现代化的GUI设计，流畅的交互体验
 - 📱 高性能：启动时间<3秒，界面响应<100ms，图片加载<200ms，AI推理<1秒
+- 📷 图片管理：支持图片上传、缩略图生成和高效存储
 
 ## 系统要求
 
@@ -78,9 +88,11 @@ python src/main.py
 
 ```
 MiaoDaDemo2/
+├── .cursor/           # Cursor IDE配置
+│   └── rules/        # 项目规则文件(MDC)
 ├── docs/             # 项目文档
+│   └── Anno_fine/   # 新增：模型标注或文档
 ├── models/           # AI模型文件
-│   ├── Anno_fine/   # 细粒度标注模型
 │   └── my_clothes_model/ # 服装识别模型
 ├── resources/        # 资源文件
 │   ├── images/      # 图片资源
@@ -90,11 +102,15 @@ MiaoDaDemo2/
 │   ├── controllers/ # 控制器
 │   ├── domain/      # 领域模型
 │   ├── infrastructure/ # 基础设施
+│   │   ├── persistence/ # 持久化
+│   │   └── storage/    # 存储服务
 │   ├── models/      # 数据模型
 │   ├── utils/       # 工具函数
 │   └── views/       # 视图
 ├── storage/         # 数据存储
 │   ├── images/      # 图片存储
+│   │   ├── processed/ # 处理后图片
+│   │   └── thumbnails/ # 缩略图
 │   ├── logs/        # 日志文件
 │   └── temp/        # 临时文件
 ├── tests/           # 测试代码
@@ -123,6 +139,30 @@ pip install -r requirements-dev.txt
 - 遵循PEP 8命名规范
 - 所有功能必须有单元测试
 - 代码提交前必须更新相关文档
+
+### 规则使用指南
+
+在开发过程中请遵循项目规则，规则文件位于`.cursor/rules/`目录：
+
+1. 引用规则的方式：
+   ```python
+   # 遵循 development-experience 规则
+   def ensure_storage_dirs():
+       for dir_path in dirs:
+           os.makedirs(dir_path, exist_ok=True)
+   ```
+
+2. 在文档中引用规则：
+   ```markdown
+   <!-- 遵循 project-structure 规则 -->
+   项目代码组织必须遵循DDD分层架构...
+   ```
+
+3. 关键规则：
+   - development-experience：开发经验总结与指南
+   - project-structure：项目目录结构规范
+   - ddd-principles：领域驱动设计原则
+   - api-design-principles：API设计原则
 
 ### 提交规范
 
@@ -182,4 +222,5 @@ MIT License
 - [PyQt6](https://www.riverbankcomputing.com/software/pyqt/)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [PyTorch](https://pytorch.org/)
-- [OpenCV](https://opencv.org/) 
+- [OpenCV](https://opencv.org/)
+- [Pillow](https://python-pillow.org/) 
