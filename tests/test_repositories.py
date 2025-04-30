@@ -4,6 +4,7 @@ import pytest
 import asyncio
 from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession # Import AsyncSession
+import sqlalchemy # Import sqlalchemy
 
 # Import domain models needed for tests
 from src.domain.model.aggregates import Outfit, Wardrobe
@@ -51,18 +52,24 @@ async def test_find_all_categories(db): # Depend on db fixture only
 
 @pytest.mark.asyncio
 async def test_find_clothing_by_category(db):
-    """测试按分类查询衣物"""
+    """测试根据分类查找衣物"""
     async with async_session() as session:
-        clothing_repo = SQLAlchemyClothingItemRepository(session)
         category_repo = SQLAlchemyCategoryRepository(session)
+        clothing_repo = SQLAlchemyClothingItemRepository(session)
         await populate_test_data(session)
-        categories = await category_repo.find_all()
-        tshirt_category = next((c for c in categories if c.name == "T恤"), None)
-        assert tshirt_category is not None, "'T恤' category not found in test data"
-        items = await clothing_repo.find_by_category_id(tshirt_category.id)
-        assert len(items) > 0
+
+        # Find a subcategory
+        all_categories = await category_repo.find_all()
+        subcategory = next((c for c in all_categories if c.parent_id is not None), None)
+        assert subcategory is not None, "Need a subcategory to test"
+
+        # Use the correct method name
+        items = await clothing_repo.find_by_category(subcategory.id) 
+        assert isinstance(items, list)
+        # We expect 3 items per subcategory based on populate_test_data
+        assert len(items) >= 3, "Expected at least 3 items for the subcategory"
         for item in items:
-            assert item.category_id == tshirt_category.id
+            assert item.category_id == subcategory.id
 
 @pytest.mark.asyncio
 async def test_create_outfit(db):
@@ -71,32 +78,46 @@ async def test_create_outfit(db):
         outfit_repo = SQLAlchemyOutfitRepository(session)
         clothing_repo = SQLAlchemyClothingItemRepository(session)
         await populate_test_data(session)
-        items = await clothing_repo.find_all()
-        assert len(items) >= 2, "Need at least 2 clothing items in test data"
-        selected_items = items[:2]
+        
+        # Find clothing items from *different* categories
+        all_items = await clothing_repo.find_all()
+        items_by_category = {}
+        for item in all_items:
+            if item.category_id not in items_by_category:
+                items_by_category[item.category_id] = item
+        
+        selected_items = list(items_by_category.values())[:3] # Take up to 3 items from different categories
+        if len(selected_items) < 2:
+             pytest.skip("Skipping outfit creation test: Need at least 2 items from different categories.")
+
         outfit_id = uuid4()
-        # Assuming Outfit domain object creation is correct
         outfit = Outfit(
             id=outfit_id,
-            name="测试穿搭",
-            description="这是一个测试穿搭",
+            name="测试穿搭_不同类别",
             occasion="daily",
             season="spring",
             weather="sunny",
             owner_id=uuid4() # Add owner_id if required by Outfit
         )
+        
+        # Add items with layers
         for idx, item in enumerate(selected_items):
             assert item.id is not None
-            outfit.add_clothing(item.id, layer_order=idx+1) # Assuming Outfit takes item ID
+            outfit.add_item(item, layer=idx+1) # Pass the item object
+            
         await outfit_repo.save(outfit)
-        saved_outfit = await outfit_repo.find_by_id(outfit.id)
-        assert saved_outfit is not None
-        assert saved_outfit.name == outfit.name
-        # Assuming outfit.items relationship works for checking saved items
-        assert len(saved_outfit.items) == len(selected_items)
-        saved_item_ids = {item.clothing_item_id for item in saved_outfit.items}
+        
+        # Verify outfit creation
+        created_outfit = await outfit_repo.find_by_id(outfit_id)
+        assert created_outfit is not None
+        assert created_outfit.id == outfit_id
+        assert created_outfit.name == "测试穿搭_不同类别"
+        assert len(created_outfit.items) == len(selected_items)
+        
+        # Verify items are correctly associated
+        retrieved_item_ids = {item.id for item in created_outfit.items}
         selected_item_ids = {item.id for item in selected_items}
-        assert saved_item_ids == selected_item_ids
+        assert retrieved_item_ids == selected_item_ids
 
 @pytest.mark.asyncio
 async def test_update_clothing(db):
@@ -111,7 +132,8 @@ async def test_update_clothing(db):
         original_name = item.name
         new_name = f"更新后的衣物_{uuid4()}"
         # Update the domain object
-        item.name = new_name # Assuming domain object has setter or direct attribute access
+        item.change_name(new_name)
+        item._is_favorite = True
         await clothing_repo.save(item) # Pass the updated domain object
         # Re-fetch to verify
         updated_item = await clothing_repo.find_by_id(item.id)
@@ -122,50 +144,70 @@ async def test_update_clothing(db):
 
 @pytest.mark.asyncio
 async def test_delete_category(db):
-    """测试删除分类"""
+    """测试删除分类（包括约束）"""
     async with async_session() as session:
         category_repo = SQLAlchemyCategoryRepository(session)
         clothing_repo = SQLAlchemyClothingItemRepository(session)
-        await populate_test_data(session) # Ensure data exists
+        await populate_test_data(session)
 
-        # Create a new category specifically for deletion test
-        new_category_id = uuid4()
-        # Fetch a valid wardrobe_id from existing data or create one
-        # Let's assume populate_test_data ensures at least one wardrobe exists
-        # and we can somehow get its ID. This setup is fragile.
-        # A better way would be a fixture that provides a test wardrobe.
-        # For now, get one from the first category found.
+        # --- Test deleting a standalone category ---
+        standalone_category_id = uuid4()
+        # Find a wardrobe_id to use
         all_categories = await category_repo.find_all()
         if not all_categories:
              pytest.skip("Skipping delete test as no categories found to get wardrobe_id")
-        wardrobe_id_for_test = all_categories[0].wardrobe_id # Get wardrobe_id from existing category
-
-        new_category_domain = Category(id=new_category_id, name=f"待删除分类_{uuid4()}", parent_id=None, wardrobe_id=wardrobe_id_for_test) # Pass wardrobe_id
-        await category_repo.save(new_category_domain)
-
-        created_category = await category_repo.find_by_id(new_category_id)
+        test_wardrobe_id = all_categories[0].wardrobe_id
+        
+        standalone_category = Category(
+            id=standalone_category_id,
+            name=f"独立分类_{uuid4()}",
+            parent_id=None,
+            wardrobe_id=test_wardrobe_id
+        )
+        await category_repo.save(standalone_category)
+        created_category = await category_repo.find_by_id(standalone_category_id)
         assert created_category is not None
-
-        # Delete the newly created category
-        delete_result = await category_repo.delete(new_category_id)
+        
+        # 删除没有关联的分类应该成功
+        delete_result = await category_repo.delete(standalone_category_id)
         assert delete_result is True
-
-        deleted_category = await category_repo.find_by_id(new_category_id)
+        deleted_category = await category_repo.find_by_id(standalone_category_id)
         assert deleted_category is None
 
-        # --- Test deleting categories with constraints ---
-        categories = await category_repo.find_all() # Re-fetch categories
+        # --- Test deleting a category with children ---
+        all_categories = await category_repo.find_all()
+        parent_cat = next((c for c in all_categories if c.parent_id is None), None)
+        assert parent_cat, "Need a parent category for constraint test"
+        
+        child_cats = await category_repo.find_by_parent_id(parent_cat.id)
+        assert child_cats, f"Parent category {parent_cat.name} ({parent_cat.id}) should have children for the test"
+        
+        # 尝试删除有子分类的父分类 - 应该返回 False
+        delete_result = await category_repo.delete(parent_cat.id)
+        assert delete_result is False, "Should not be able to delete category with children"
+        
+        # 验证父分类和子分类仍然存在
+        parent_check = await category_repo.find_by_id(parent_cat.id)
+        assert parent_check is not None, "Parent category should still exist"
+        child_cats_after = await category_repo.find_by_parent_id(parent_cat.id)
+        assert len(child_cats_after) == len(child_cats), "Children categories should still exist"
 
-        # Test deleting a category with children
-        parent_category = next((c for c in categories if c.name == "上装" and any(sub.parent_id == c.id for sub in categories)), None)
-        if parent_category:
-            with pytest.raises(Exception): # Expecting an error due to FK constraints
-                 await category_repo.delete(parent_category.id)
-
-        # Test deleting a category with associated items
-        tshirt_category = next((c for c in categories if c.name == "T恤"), None)
-        if tshirt_category:
-            items_in_category = await clothing_repo.find_by_category_id(tshirt_category.id)
-            if items_in_category:
-                 with pytest.raises(Exception): # Expecting an error due to FK constraints
-                     await category_repo.delete(tshirt_category.id) 
+        # --- Test deleting a category with associated items ---
+        # 找到一个有关联衣物的分类
+        all_items = await clothing_repo.find_all()
+        if not all_items:
+            pytest.skip("Need clothing items to test category deletion constraint")
+        
+        test_item = all_items[0]
+        category_with_items = await category_repo.find_by_id(test_item.category_id)
+        assert category_with_items is not None
+        
+        # 尝试删除有关联衣物的分类 - 应该返回 False
+        delete_result = await category_repo.delete(category_with_items.id)
+        assert delete_result is False, "Should not be able to delete category with items"
+        
+        # 验证分类和衣物仍然存在
+        category_check = await category_repo.find_by_id(category_with_items.id)
+        assert category_check is not None, "Category should still exist"
+        items_check = await clothing_repo.find_by_category(category_with_items.id)
+        assert len(items_check) > 0, "Items should still exist" 

@@ -207,7 +207,6 @@ def generate_outfits(clothing_items: List[Dict], owner_id: UUID, count: int = 3)
             "id": uuid4(), # Use UUID object directly
             "name": f"搭配{_ + 1}",
             "owner_id": owner_id, # Use the provided owner_id
-            "description": f"这是一套{random.choice(['休闲', '正式', '运动'])}搭配",
             "occasion": random.choice(occasions),
             "season": random.choice(seasons),
             "weather": random.choice(weathers),

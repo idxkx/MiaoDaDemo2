@@ -101,24 +101,32 @@ class ClothingItem(Entity):
         id: UUID,
         name: str,
         category_id: UUID,
+        wardrobe_id: UUID,
         color: Color,
         size: Size,
         brand: Brand,
         material: Material,
         purchase_date: datetime,
         price: float,
+        dimension: Optional[Dimension] = None,
+        style: Optional[Style] = None,
+        image_metadata: Optional[ImageMetadata] = None,
         description: Optional[str] = None,
         image_url: Optional[str] = None
     ):
         super().__init__(id)
         self._name = name
         self._category_id = category_id
+        self._wardrobe_id = wardrobe_id
         self._color = color
         self._size = size
         self._brand = brand
         self._material = material
         self._purchase_date = purchase_date
         self._price = price
+        self._dimension = dimension
+        self._style = style
+        self._image_metadata = image_metadata
         self._description = description
         self._image_url = image_url
         self._tags: List[Tag] = []
@@ -133,6 +141,10 @@ class ClothingItem(Entity):
         return self._category_id
 
     @property
+    def wardrobe_id(self) -> UUID:
+        return self._wardrobe_id
+
+    @property
     def color(self) -> Color:
         return self._color
 
@@ -141,12 +153,24 @@ class ClothingItem(Entity):
         return self._size
 
     @property
+    def dimension(self) -> Optional[Dimension]:
+        return self._dimension
+
+    @property
     def brand(self) -> Brand:
         return self._brand
 
     @property
     def material(self) -> Material:
         return self._material
+
+    @property
+    def style(self) -> Optional[Style]:
+        return self._style
+
+    @property
+    def image_metadata(self) -> Optional[ImageMetadata]:
+        return self._image_metadata
 
     @property
     def purchase_date(self) -> datetime:
@@ -203,6 +227,14 @@ class ClothingItem(Entity):
         self._description = description
         self._version += 1
 
+    def change_name(self, new_name: str) -> None:
+        """更改衣物名称"""
+        if not new_name:
+            raise ValueError("Name cannot be empty")
+        self._name = new_name
+        self._version += 1
+        # Potential domain event can be added here
+
     def to_dict(self) -> dict:
         """将 ClothingItem 对象（包括 Tag）序列化为字典"""
         # 注意：Value Objects (Color, Size, Brand, Material) 也需要 to_dict
@@ -214,6 +246,7 @@ class ClothingItem(Entity):
             # 假设值对象有 .value 属性或可直接序列化
             "color": self.color.to_dict() if hasattr(self.color, 'to_dict') else getattr(self.color, 'value', str(self.color)),
             "size": self.size.to_dict() if hasattr(self.size, 'to_dict') else getattr(self.size, 'value', str(self.size)),
+            "dimension": self.dimension.to_dict() if hasattr(self.dimension, 'to_dict') else getattr(self.dimension, 'value', str(self.dimension)),
             "brand": self.brand.to_dict() if hasattr(self.brand, 'to_dict') else getattr(self.brand, 'value', str(self.brand)),
             "material": self.material.to_dict() if hasattr(self.material, 'to_dict') else getattr(self.material, 'value', str(self.material)),
             "purchase_date": self.purchase_date.isoformat() if self.purchase_date else None,
@@ -254,12 +287,16 @@ class ClothingItem(Entity):
             id=UUID(data['id']),
             name=data['name'],
             category_id=UUID(data['category_id']),
+            wardrobe_id=UUID(data['wardrobe_id']),
             color=color,
             size=size,
             brand=brand,
             material=material,
             purchase_date=purchase_date_obj,
             price=data.get('price', 0.0),
+            dimension=data.get('dimension'),
+            style=data.get('style'),
+            image_metadata=data.get('image_metadata'),
             description=data.get('description'),
             image_url=data.get('image_url')
         )
@@ -283,12 +320,14 @@ class Category(Entity):
         self,
         id: UUID,
         name: str,
+        wardrobe_id: UUID,
         parent_id: Optional[UUID] = None,
         description: Optional[str] = None
     ):
         super().__init__(id)
         self._name = name
         self._parent_id = parent_id
+        self._wardrobe_id = wardrobe_id
         self._description = description
         self._subcategories: List[UUID] = []
 
@@ -299,6 +338,10 @@ class Category(Entity):
     @property
     def parent_id(self) -> Optional[UUID]:
         return self._parent_id
+
+    @property
+    def wardrobe_id(self) -> UUID:
+        return self._wardrobe_id
 
     @property
     def description(self) -> Optional[str]:

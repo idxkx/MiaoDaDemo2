@@ -23,13 +23,15 @@ def create_test_wardrobe():
     )
     
     # 添加分类
-    tops_category = Category(id=UUID(int=3), name="上衣")
-    bottoms_category = Category(id=UUID(int=4), name="裤子")
-    shoes_category = Category(id=UUID(int=5), name="鞋子")
+    tops_category = Category(id=UUID(int=3), name="上衣", wardrobe_id=wardrobe.id)
+    bottoms_category = Category(id=UUID(int=4), name="裤子", wardrobe_id=wardrobe.id)
+    shoes_category = Category(id=UUID(int=5), name="鞋子", wardrobe_id=wardrobe.id)
     
     wardrobe.add_category(tops_category)
     wardrobe.add_category(bottoms_category)
     wardrobe.add_category(shoes_category)
+    
+    wardrobe_id_for_items = wardrobe.id # Use the created wardrobe's ID
     
     # 添加衣物
     # 上衣
@@ -37,6 +39,7 @@ def create_test_wardrobe():
         id=UUID(int=6),
         name="白色T恤",
         category_id=UUID(int=3),
+        wardrobe_id=wardrobe_id_for_items, # Add wardrobe_id
         color=Color("白色", "#FFFFFF"),
         size=Size("M"),
         brand=Brand("优衣库"),
@@ -50,6 +53,7 @@ def create_test_wardrobe():
         id=UUID(int=7),
         name="蓝色衬衫",
         category_id=UUID(int=3),
+        wardrobe_id=wardrobe_id_for_items, # Add wardrobe_id
         color=Color("蓝色", "#0000FF"),
         size=Size("M"),
         brand=Brand("优衣库"),
@@ -64,6 +68,7 @@ def create_test_wardrobe():
         id=UUID(int=8),
         name="蓝色牛仔裤",
         category_id=UUID(int=4),
+        wardrobe_id=wardrobe_id_for_items, # Add wardrobe_id
         color=Color("蓝色", "#0000CD"),
         size=Size("M"),
         brand=Brand("李维斯"),
@@ -78,6 +83,7 @@ def create_test_wardrobe():
         id=UUID(int=9),
         name="白色运动鞋",
         category_id=UUID(int=5),
+        wardrobe_id=wardrobe_id_for_items, # Add wardrobe_id
         color=Color("白色", "#FFFFFF"),
         size=Size("M"),
         brand=Brand("耐克"),

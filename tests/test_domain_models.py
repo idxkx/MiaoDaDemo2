@@ -14,13 +14,16 @@ from src.domain.model.exceptions import (
     DuplicateClothingItem
 )
 
+TEST_WARDROBE_ID = UUID(int=99) # Define a test wardrobe ID
+
 def create_test_category():
     """创建测试分类"""
     return Category(
         id=UUID(int=1),
         name="T恤",
         description="上衣类别-T恤",
-        parent_id=UUID(int=2)  # 假设2是"上装"分类的ID
+        parent_id=UUID(int=2),  # 假设2是"上装"分类的ID
+        wardrobe_id=TEST_WARDROBE_ID # Add wardrobe_id
     )
 
 def create_test_clothing():
@@ -30,6 +33,7 @@ def create_test_clothing():
         name="基础白色T恤",
         description="简约风格的白色T恤",
         category_id=UUID(int=1),  # T恤分类
+        wardrobe_id=TEST_WARDROBE_ID, # Add wardrobe_id
         color=Color("白色", "#FFFFFF"),
         size=Size("M"),
         brand=Brand("优衣库"),
@@ -92,6 +96,7 @@ def test_outfit_item_limit():
                 id=UUID(int=10+i),
                 name=f"测试衣物{i}",
                 category_id=UUID(int=100+i),  # 使用不同的类别ID
+                wardrobe_id=TEST_WARDROBE_ID, # Add wardrobe_id
                 color=Color("白色", "#FFFFFF"),
                 size=Size("M"),
                 brand=Brand("测试品牌"),
@@ -139,6 +144,7 @@ def test_outfit_validation():
         id=UUID(int=6),
         name="白色T恤1",
         category_id=UUID(int=1),  # T恤分类
+        wardrobe_id=TEST_WARDROBE_ID, # Add wardrobe_id
         color=Color("白色", "#FFFFFF"),
         size=Size("M"),
         brand=Brand("品牌A"),
@@ -151,6 +157,7 @@ def test_outfit_validation():
         id=UUID(int=7),
         name="白色T恤2",
         category_id=UUID(int=1),  # T恤分类
+        wardrobe_id=TEST_WARDROBE_ID, # Add wardrobe_id
         color=Color("白色", "#FFFFFF"),
         size=Size("M"),
         brand=Brand("品牌B"),

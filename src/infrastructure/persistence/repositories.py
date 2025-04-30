@@ -1,6 +1,7 @@
 from typing import List, Optional, Type, TypeVar
 from uuid import UUID
 import json
+import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -21,7 +22,8 @@ from src.domain.model.value_objects import (
     Price,
     Brand,
     Material,
-    Style
+    Style,
+    Size
 )
 from .models import (
     WardrobeModel,
@@ -153,7 +155,7 @@ class SQLAlchemyWardrobeRepository(WardrobeRepository, SQLAlchemyRepository):
             material=self._to_json(item.material),
             style=self._to_json(item.style),
             image_metadata=self._to_json(item.image_metadata),
-            price=self._to_json(item.price) if item.price else None,
+            price=item.price,
             description=item.description,
             tags=item.tags,
             is_favorite=item.is_favorite,
@@ -167,6 +169,7 @@ class SQLAlchemyWardrobeRepository(WardrobeRepository, SQLAlchemyRepository):
         category = Category(
             id=model.id,
             name=model.name,
+            wardrobe_id=model.wardrobe_id,
             parent_id=model.parent_id,
             description=model.description
         )
@@ -177,17 +180,27 @@ class SQLAlchemyWardrobeRepository(WardrobeRepository, SQLAlchemyRepository):
     
     def _clothing_item_to_domain(self, model: ClothingItemModel) -> ClothingItem:
         """将衣物数据模型转换为领域模型"""
+        # Parse dimension JSON from model
+        dimension_data = json.loads(model.dimension) if isinstance(model.dimension, str) else model.dimension
+        size_obj = Size(value=dimension_data.get('size', '')) # Create Size object
+        dimension_obj = Dimension(size=dimension_data.get('size', ''), measurement=dimension_data.get('measurement')) # Create Dimension object
+        
         item = ClothingItem(
             id=model.id,
             name=model.name,
             category_id=model.category_id,
+            wardrobe_id=model.wardrobe_id,
             color=self._from_json(model.color, Color),
-            dimension=self._from_json(model.dimension, Dimension),
+            size=size_obj, # Pass Size object
+            dimension=dimension_obj, # Pass Dimension object
             brand=self._from_json(model.brand, Brand),
             material=self._from_json(model.material, Material),
             style=self._from_json(model.style, Style),
+            # Pass purchase_date (using model.created_at as placeholder)
+            purchase_date=model.created_at, 
+            price=item.price,
+            # Pass image_metadata object
             image_metadata=self._from_json(model.image_metadata, ImageMetadata),
-            price=self._from_json(model.price, Price) if model.price else None,
             description=model.description
         )
         item._tags = model.tags
@@ -289,17 +302,27 @@ class SQLAlchemyOutfitRepository(OutfitRepository, SQLAlchemyRepository):
     
     def _clothing_item_to_domain(self, model: ClothingItemModel) -> ClothingItem:
         """将衣物数据模型转换为领域模型"""
+        # Parse dimension JSON from model
+        dimension_data = json.loads(model.dimension) if isinstance(model.dimension, str) else model.dimension
+        size_obj = Size(value=dimension_data.get('size', '')) # Create Size object
+        dimension_obj = Dimension(size=dimension_data.get('size', ''), measurement=dimension_data.get('measurement')) # Create Dimension object
+        
         item = ClothingItem(
             id=model.id,
             name=model.name,
             category_id=model.category_id,
+            wardrobe_id=model.wardrobe_id,
             color=self._from_json(model.color, Color),
-            dimension=self._from_json(model.dimension, Dimension),
+            size=size_obj, # Pass Size object
+            dimension=dimension_obj, # Pass Dimension object
             brand=self._from_json(model.brand, Brand),
             material=self._from_json(model.material, Material),
             style=self._from_json(model.style, Style),
+            # Pass purchase_date (using model.created_at as placeholder)
+            purchase_date=model.created_at, 
+            price=model.price,
+            # Pass image_metadata object
             image_metadata=self._from_json(model.image_metadata, ImageMetadata),
-            price=self._from_json(model.price, Price) if model.price else None,
             description=model.description
         )
         item._tags = model.tags
@@ -313,24 +336,91 @@ class SQLAlchemyClothingItemRepository(ClothingItemRepository, SQLAlchemyReposit
     """衣物仓储实现"""
     
     async def save(self, item: ClothingItem) -> None:
-        model = ClothingItemModel(
-            id=item.id,
-            name=item.name,
-            category_id=item.category_id,
-            wardrobe_id=item.wardrobe_id,
-            color=self._to_json(item.color),
-            dimension=self._to_json(item.dimension),
-            brand=self._to_json(item.brand),
-            material=self._to_json(item.material),
-            style=self._to_json(item.style),
-            image_metadata=self._to_json(item.image_metadata),
-            price=self._to_json(item.price) if item.price else None,
-            description=item.description,
-            tags=item.tags,
-            is_favorite=item.is_favorite,
-            version=item.version
-        )
-        self.session.add(model)
+        """保存或更新衣物"""
+        existing_model = await self.session.get(ClothingItemModel, item.id)
+        
+        # 准备序列化的数据
+        size_value = item.size.value if item.size else "M"
+        if not re.match(r"^(XS|S|M|L|XL|XXL|XXXL)$", size_value):
+            size_value = "M"
+            
+        size_dict = {"value": size_value}
+        dimension_dict = {
+            "size": size_dict,
+            "measurement": item.dimension.measurement if item.dimension else None
+        }
+        
+        # 准备颜色数据
+        color_data = {
+            "name": item.color.name if item.color else "黑色",
+            "hex_code": item.color.hex_code if item.color else "#000000"
+        }
+        
+        # 准备其他值对象数据
+        brand_data = {
+            "name": item.brand.name if item.brand else "未知品牌",
+            "country": item.brand.country if item.brand and hasattr(item.brand, 'country') else None
+        }
+        
+        material_data = {
+            "name": item.material.name if item.material else "未知材质",
+            "composition": item.material.composition if item.material else {"未知": 100.0}
+        }
+        
+        style_data = {
+            "name": item.style.name if item.style else "休闲",
+            "tags": item.style.tags if item.style else ["休闲"]
+        }
+        
+        # 将所有值对象转换为 JSON 字符串
+        serialized_data = {
+            "color": json.dumps(color_data),
+            "dimension": json.dumps(dimension_dict),
+            "brand": json.dumps(brand_data),
+            "material": json.dumps(material_data),
+            "style": json.dumps(style_data),
+            "image_metadata": json.dumps(self._to_json(item.image_metadata)) if item.image_metadata else "null",
+            "tags": json.dumps(item.tags) if item.tags else "[]"
+        }
+        
+        if existing_model:
+            # Update existing model
+            existing_model.name = item.name
+            existing_model.category_id = item.category_id
+            existing_model.wardrobe_id = item.wardrobe_id
+            existing_model.color = serialized_data["color"]
+            existing_model.dimension = serialized_data["dimension"]
+            existing_model.brand = serialized_data["brand"]
+            existing_model.material = serialized_data["material"]
+            existing_model.style = serialized_data["style"]
+            existing_model.image_metadata = serialized_data["image_metadata"]
+            existing_model.price = item.price
+            existing_model.description = item.description
+            existing_model.tags = serialized_data["tags"]
+            existing_model.is_favorite = item.is_favorite
+            existing_model.version = item.version
+            model_to_save = existing_model
+        else:
+            # Create new model
+            model_to_save = ClothingItemModel(
+                id=item.id,
+                name=item.name,
+                category_id=item.category_id,
+                wardrobe_id=item.wardrobe_id,
+                color=serialized_data["color"],
+                dimension=serialized_data["dimension"],
+                brand=serialized_data["brand"],
+                material=serialized_data["material"],
+                style=serialized_data["style"],
+                image_metadata=serialized_data["image_metadata"],
+                price=item.price,
+                description=item.description,
+                tags=serialized_data["tags"],
+                is_favorite=item.is_favorite,
+                version=item.version
+            )
+        self.session.add(model_to_save)
+        await self.session.flush()
     
     async def delete(self, id: UUID) -> None:
         await self.session.execute(
@@ -372,21 +462,91 @@ class SQLAlchemyClothingItemRepository(ClothingItemRepository, SQLAlchemyReposit
         return [self._to_domain(model) for model in result.scalars()]
     
     def _to_domain(self, model: ClothingItemModel) -> ClothingItem:
-        """将数据模型转换为领域模型"""
+        """将衣物数据模型转换为领域模型"""
+        # 解析 JSON 字符串为字典
+        try:
+            color_dict = json.loads(model.color)
+            dimension_dict = json.loads(model.dimension)
+            brand_dict = json.loads(model.brand)
+            material_dict = json.loads(model.material)
+            style_dict = json.loads(model.style)
+            image_metadata_dict = json.loads(model.image_metadata)
+            tags = json.loads(model.tags)
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"JSON 解析错误: {e}")
+            # 提供默认值
+            color_dict = {"name": "黑色", "hex_code": "#000000"}
+            dimension_dict = {"size": {"value": "M"}, "measurement": None}
+            brand_dict = {"name": "未知品牌"}
+            material_dict = {"name": "未知材质", "composition": {"未知": 100.0}}
+            style_dict = {"name": "休闲", "tags": ["休闲"]}
+            image_metadata_dict = {}
+            tags = []
+        
+        # 创建 Color 对象
+        try:
+            color = Color(
+                name=color_dict.get("name", "黑色"),
+                hex_code=color_dict.get("hex_code", "#000000")
+            )
+        except (ValueError, KeyError, TypeError):
+            color = Color(name="黑色", hex_code="#000000")
+        
+        # 从 dimension_dict 中提取 size 信息
+        size_dict = dimension_dict.get("size", {})
+        size_value = size_dict.get("value", "M") if isinstance(size_dict, dict) else "M"
+        if not re.match(r"^(XS|S|M|L|XL|XXL|XXXL)$", size_value):
+            size_value = "M"
+        size_obj = Size(value=size_value)
+        
+        # 创建 Dimension 对象
+        dimension_obj = Dimension(
+            size=size_value,
+            measurement=dimension_dict.get("measurement")
+        )
+        
+        # 创建其他值对象
+        try:
+            brand = Brand(
+                name=brand_dict.get("name", "未知品牌"),
+                country=brand_dict.get("country")
+            )
+        except (ValueError, KeyError, TypeError):
+            brand = Brand(name="未知品牌")
+            
+        try:
+            material = Material(
+                name=material_dict.get("name", "未知材质"),
+                composition=material_dict.get("composition", {"未知": 100.0})
+            )
+        except (ValueError, KeyError, TypeError):
+            material = Material(name="未知材质", composition={"未知": 100.0})
+            
+        try:
+            style = Style(
+                name=style_dict.get("name", "休闲"),
+                tags=style_dict.get("tags", ["休闲"])
+            )
+        except (ValueError, KeyError, TypeError):
+            style = Style(name="休闲", tags=["休闲"])
+        
         item = ClothingItem(
             id=model.id,
             name=model.name,
             category_id=model.category_id,
-            color=self._from_json(model.color, Color),
-            dimension=self._from_json(model.dimension, Dimension),
-            brand=self._from_json(model.brand, Brand),
-            material=self._from_json(model.material, Material),
-            style=self._from_json(model.style, Style),
-            image_metadata=self._from_json(model.image_metadata, ImageMetadata),
-            price=self._from_json(model.price, Price) if model.price else None,
+            wardrobe_id=model.wardrobe_id,
+            color=color,
+            size=size_obj,
+            dimension=dimension_obj,
+            brand=brand,
+            material=material,
+            style=style,
+            purchase_date=model.created_at,
+            price=model.price,
+            image_metadata=self._from_json(image_metadata_dict, ImageMetadata) if image_metadata_dict else None,
             description=model.description
         )
-        item._tags = model.tags
+        item._tags = tags
         item._is_favorite = model.is_favorite
         item._version = model.version
         item._created_at = model.created_at
@@ -397,19 +557,61 @@ class SQLAlchemyCategoryRepository(CategoryRepository, SQLAlchemyRepository):
     """分类仓储实现"""
     
     async def save(self, category: Category) -> None:
-        model = CategoryModel(
-            id=category.id,
-            name=category.name,
-            parent_id=category.parent_id,
-            description=category.description,
-            version=category.version
-        )
-        self.session.add(model)
+        """保存或更新分类"""
+        # Try to find existing model
+        existing_model = await self.session.get(CategoryModel, category.id)
+        if existing_model:
+            # Update existing model
+            existing_model.name = category.name
+            existing_model.parent_id = category.parent_id
+            existing_model.description = category.description
+            existing_model.version = category.version
+            # Ensure wardrobe_id is updated if it changes (though unlikely for existing)
+            existing_model.wardrobe_id = category.wardrobe_id 
+            model_to_save = existing_model
+        else:
+            # Create new model
+            model_to_save = CategoryModel(
+                id=category.id,
+                name=category.name,
+                parent_id=category.parent_id,
+                wardrobe_id=category.wardrobe_id, # Ensure wardrobe_id is passed here
+                description=category.description,
+                version=category.version
+            )
+        self.session.add(model_to_save)
+        await self.session.flush()
     
-    async def delete(self, id: UUID) -> None:
-        await self.session.execute(
-            select(CategoryModel).where(CategoryModel.id == id)
+    async def delete(self, id: UUID) -> bool:
+        """删除分类
+        
+        在删除分类之前检查：
+        1. 是否有子分类
+        2. 是否有关联的衣物
+        
+        如果有任何关联数据，将引发 IntegrityError
+        """
+        # 首先检查是否存在子分类
+        result = await self.session.execute(
+            select(CategoryModel).where(CategoryModel.parent_id == id)
         )
+        if result.scalars().first():
+            return False  # 有子分类，不能删除
+            
+        # 检查是否有关联的衣物
+        result = await self.session.execute(
+            select(ClothingItemModel).where(ClothingItemModel.category_id == id)
+        )
+        if result.scalars().first():
+            return False  # 有关联衣物，不能删除
+            
+        # 如果没有关联数据，执行删除
+        model = await self.session.get(CategoryModel, id)
+        if model:
+            await self.session.delete(model)
+            await self.session.flush()
+            return True
+        return False
     
     async def find_by_id(self, id: UUID) -> Optional[Category]:
         result = await self.session.execute(
@@ -441,6 +643,7 @@ class SQLAlchemyCategoryRepository(CategoryRepository, SQLAlchemyRepository):
         category = Category(
             id=model.id,
             name=model.name,
+            wardrobe_id=model.wardrobe_id,
             parent_id=model.parent_id,
             description=model.description
         )

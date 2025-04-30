@@ -65,7 +65,7 @@ class ClothingItemModel(Base):
     material = Column(JSON, nullable=False)  # Material值对象
     style = Column(JSON, nullable=False)  # Style值对象
     image_metadata = Column(JSON, nullable=False)  # ImageMetadata值对象
-    price = Column(JSON)  # Price值对象
+    price = Column(Float)  # Changed from JSON to Float
     description = Column(String)
     tags = Column(JSON, nullable=False, default=list)
     is_favorite = Column(Boolean, nullable=False, default=False)
@@ -91,8 +91,8 @@ class CategoryModel(Base):
     
     items = relationship("ClothingItemModel", back_populates="category")
     wardrobe = relationship("WardrobeModel", back_populates="categories")
-    parent = relationship("CategoryModel", remote_side=[id])
-    children = relationship("CategoryModel")
+    parent = relationship("CategoryModel", remote_side=[id], back_populates="children")
+    children = relationship("CategoryModel", back_populates="parent", passive_deletes=True)
 
 # Print Base ID at the end of the file to see its ID upon module import
 print(f"[models.py] Base object id after definitions: {id(Base)}") 
