@@ -8,10 +8,34 @@ import numpy as np
 from rembg import remove
 from PIL import Image
 from sklearn.cluster import KMeans
-from typing import List, Tuple
+from typing import List, Tuple, Callable, Optional, Dict, Any
 import logging
+import asyncio
+from datetime import datetime
+import tempfile
+import shutil
 
 logger = logging.getLogger(__name__)
+
+class ImageProcessingError(Exception):
+    """图像处理错误基类"""
+    pass
+
+class ImageLoadError(ImageProcessingError):
+    """图像加载错误"""
+    pass
+
+class ImageSaveError(ImageProcessingError):
+    """图像保存错误"""
+    pass
+
+class BackgroundRemovalError(ImageProcessingError):
+    """背景移除错误"""
+    pass
+
+class ColorExtractionError(ImageProcessingError):
+    """颜色提取错误"""
+    pass
 
 class ImageProcessor:
     """图像处理器类"""
@@ -192,24 +216,143 @@ class ImageProcessor:
         
         return closest_color
 
-async def process_clothing_image(image_path: str) -> Tuple[str, List[Tuple[str, str, float]]]:
+async def process_clothing_image(
+    image_path: str,
+    progress_callback: Optional[Callable[[str, int], None]] = None,
+    cancellation_token: Optional[asyncio.Event] = None,
+    output_dir: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None
+) -> Tuple[str, List[Tuple[str, str, float]]]:
     """
     处理服装图片：移除背景并提取主要颜色
     
     Args:
         image_path: 输入图片路径
-        
+        progress_callback: 进度回调函数，接收消息和进度值(0-100)
+        cancellation_token: 取消令牌，用于取消处理
+        output_dir: 输出目录，默认使用临时目录
+        config: 配置参数，包含：
+            - num_colors: 要提取的颜色数量（默认3）
+            - min_size: 最小图片尺寸（默认100x100）
+            - max_size: 最大图片尺寸（默认4000x4000）
+            - allowed_formats: 允许的图片格式（默认['jpg', 'jpeg', 'png']）
+            - quality: 输出图片质量（默认85）
+    
     Returns:
-        Tuple[str, List[Tuple[str, str, float]]]: 
-            - 处理后的图片路径
-            - 主要颜色列表，每个元素为 (颜色名称, 十六进制颜色码, 占比)
+        Tuple[str, List[Tuple[str, str, float]]]: (处理后的图片路径, 主要颜色列表)
+        
+    Raises:
+        ImageLoadError: 图片加载失败
+        ImageSaveError: 图片保存失败
+        BackgroundRemovalError: 背景移除失败
+        ColorExtractionError: 颜色提取失败
+        ValueError: 参数错误
     """
-    processor = ImageProcessor()
-    
-    # 移除背景
-    no_bg_path = await processor.remove_background(image_path)
-    
-    # 提取主要颜色
-    colors = await processor.extract_main_colors(no_bg_path)
-    
-    return no_bg_path, colors 
+    try:
+        # 默认配置
+        default_config = {
+            'num_colors': 3,
+            'min_size': (100, 100),
+            'max_size': (4000, 4000),
+            'allowed_formats': ['jpg', 'jpeg', 'png'],
+            'quality': 85
+        }
+        config = {**default_config, **(config or {})}
+        
+        # 验证输入
+        if not os.path.exists(image_path):
+            raise ImageLoadError(f"图片文件不存在: {image_path}")
+            
+        # 检查文件格式
+        ext = os.path.splitext(image_path)[1].lower().lstrip('.')
+        if ext not in config['allowed_formats']:
+            raise ValueError(f"不支持的图片格式: {ext}")
+            
+        if progress_callback:
+            progress_callback("正在验证图片...", 5)
+            
+        # 检查取消状态
+        if cancellation_token and cancellation_token.is_set():
+            logger.info("处理被取消")
+            return "", []
+            
+        # 创建临时目录
+        temp_dir = tempfile.mkdtemp(prefix="clothing_process_")
+        try:
+            # 加载并验证图片
+            try:
+                image = Image.open(image_path)
+                width, height = image.size
+                
+                # 检查图片尺寸
+                if width < config['min_size'][0] or height < config['min_size'][1]:
+                    raise ImageLoadError(f"图片尺寸太小: {width}x{height}")
+                if width > config['max_size'][0] or height > config['max_size'][1]:
+                    raise ImageLoadError(f"图片尺寸太大: {width}x{height}")
+                    
+            except Exception as e:
+                raise ImageLoadError(f"无法加载图片: {str(e)}")
+                
+            if progress_callback:
+                progress_callback("正在移除背景...", 20)
+                
+            # 检查取消状态
+            if cancellation_token and cancellation_token.is_set():
+                return "", []
+                
+            # 移除背景
+            try:
+                # 生成输出文件名
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_filename = f"no_bg_{timestamp}.png"
+                if output_dir:
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_path = os.path.join(output_dir, output_filename)
+                else:
+                    output_path = os.path.join(temp_dir, output_filename)
+                
+                # 移除背景
+                output_image = remove(image)
+                output_image.save(output_path, quality=config['quality'])
+                
+            except Exception as e:
+                raise BackgroundRemovalError(f"背景移除失败: {str(e)}")
+                
+            if progress_callback:
+                progress_callback("正在分析颜色...", 60)
+                
+            # 检查取消状态
+            if cancellation_token and cancellation_token.is_set():
+                return "", []
+                
+            # 提取颜色
+            try:
+                colors = await ImageProcessor.extract_main_colors(
+                    output_path,
+                    num_colors=config['num_colors']
+                )
+            except Exception as e:
+                raise ColorExtractionError(f"颜色提取失败: {str(e)}")
+                
+            if progress_callback:
+                progress_callback("处理完成", 100)
+                
+            # 如果使用临时目录且指定了输出目录，移动文件
+            if output_dir and temp_dir in output_path:
+                final_path = os.path.join(output_dir, output_filename)
+                shutil.move(output_path, final_path)
+                output_path = final_path
+                
+            return output_path, colors
+            
+        finally:
+            # 清理临时目录
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"清理临时目录失败: {str(e)}")
+                
+    except Exception as e:
+        logger.error(f"图片处理失败: {str(e)}", exc_info=True)
+        raise 

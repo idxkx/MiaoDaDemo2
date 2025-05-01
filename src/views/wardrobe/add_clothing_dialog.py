@@ -23,7 +23,13 @@ import os
 import logging
 
 from ..dialogs.base_dialog import BaseDialog
-from src.utils.image_processor import process_clothing_image
+from src.utils.image_processor import (
+    process_clothing_image,
+    ImageProcessingError,
+    ImageLoadError,
+    BackgroundRemovalError,
+    ColorExtractionError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,86 +44,80 @@ class ImageProcessThread(QThread):
         self.image_path = image_path
         self._is_cancelled = False
         self._loop = None
+        self._cancel_event = asyncio.Event()
         logger.info(f"创建图片处理线程，处理图片：{image_path}")
     
     def run(self):
         """运行图片处理任务"""
         try:
-            # 验证输入图片
-            if not os.path.exists(self.image_path):
-                raise FileNotFoundError(f"输入图片不存在: {self.image_path}")
-            
-            # 验证图片大小
-            file_size = os.path.getsize(self.image_path) / (1024 * 1024)  # 转换为MB
-            if file_size > 10:  # 限制10MB
-                raise ValueError(f"图片太大 ({file_size:.1f}MB)，请选择小于10MB的图片")
-            
-            # 验证图片格式
-            valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp'}
-            ext = os.path.splitext(self.image_path)[1].lower()
-            if ext not in valid_extensions:
-                raise ValueError(f"不支持的图片格式: {ext}")
-            
-            logger.info("开始处理图片...")
-            self.progress.emit("正在初始化处理环境...", 0)
-            
             # 创建事件循环
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
             
             # 处理图片
-            self.progress.emit("正在移除背景...", 20)
-            logger.info("调用process_clothing_image...")
+            logger.info("开始处理图片...")
             
-            try:
-                no_bg_path, colors = self._loop.run_until_complete(
-                    process_clothing_image(self.image_path)
+            # 设置输出目录
+            output_dir = os.path.join("storage", "images", "processed")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 处理配置
+            config = {
+                'num_colors': 5,  # 提取5种主要颜色
+                'min_size': (100, 100),
+                'max_size': (4000, 4000),
+                'quality': 90
+            }
+            
+            # 处理图片
+            no_bg_path, colors = self._loop.run_until_complete(
+                process_clothing_image(
+                    self.image_path,
+                    progress_callback=self._update_progress,
+                    cancellation_token=self._cancel_event,
+                    output_dir=output_dir,
+                    config=config
                 )
-                
-                # 检查是否被取消
-                if self._is_cancelled:
-                    logger.info("图片处理已被取消")
-                    self._cleanup(no_bg_path)
-                    return
-                
-                # 验证处理结果
-                if not os.path.exists(no_bg_path):
-                    raise FileNotFoundError(f"处理后的图片文件不存在：{no_bg_path}")
-                
-                if not colors:
-                    logger.warning("未能识别出颜色信息")
-                    colors = [("未知", "#000000", 100.0)]
-                
-                self.progress.emit("处理完成", 100)
-                logger.info(f"图片处理完成：\n- 去背景图片：{no_bg_path}\n- 识别颜色：{colors}")
-                
-                # 发送结果
-                self.finished.emit(no_bg_path, colors)
-                
-            except asyncio.CancelledError:
-                logger.info("图片处理任务被取消")
-                self._cleanup()
+            )
+            
+            # 检查是否被取消
+            if self._is_cancelled:
+                logger.info("图片处理已被取消")
                 return
-            except Exception as e:
-                logger.error(f"处理图片时出错: {str(e)}", exc_info=True)
-                self.error.emit(f"处理图片失败: {str(e)}")
-                self._cleanup()
-                return
-                
+            
+            # 发送结果
+            self.finished.emit(no_bg_path, colors)
+            
         except Exception as e:
-            logger.error(f"图片处理线程出错: {str(e)}", exc_info=True)
-            self.error.emit(str(e))
+            logger.error(f"图片处理失败: {str(e)}", exc_info=True)
+            error_message = str(e)
+            if isinstance(e, ImageLoadError):
+                error_message = f"无法加载图片: {str(e)}"
+            elif isinstance(e, BackgroundRemovalError):
+                error_message = f"背景移除失败: {str(e)}"
+            elif isinstance(e, ColorExtractionError):
+                error_message = f"颜色提取失败: {str(e)}"
+            elif isinstance(e, ValueError):
+                error_message = str(e)
+            else:
+                error_message = f"处理图片时出错: {str(e)}"
+            self.error.emit(error_message)
         finally:
             self._cleanup()
+    
+    def _update_progress(self, message: str, value: int):
+        """更新进度"""
+        self.progress.emit(message, value)
     
     def cancel(self):
         """取消处理任务"""
         logger.info("请求取消图片处理")
         self._is_cancelled = True
+        self._cancel_event.set()
         if self._loop and self._loop.is_running():
             self._loop.stop()
     
-    def _cleanup(self, temp_file=None):
+    def _cleanup(self):
         """清理资源"""
         try:
             # 关闭事件循环
@@ -126,15 +126,6 @@ class ImageProcessThread(QThread):
                     self._loop.stop()
                 self._loop.close()
                 self._loop = None
-            
-            # 删除临时文件（如果处理被取消）
-            if self._is_cancelled and temp_file and os.path.exists(temp_file):
-                try:
-                    os.remove(temp_file)
-                    logger.info(f"已删除临时文件: {temp_file}")
-                except Exception as e:
-                    logger.error(f"删除临时文件失败: {str(e)}")
-                    
         except Exception as e:
             logger.error(f"清理资源时出错: {str(e)}")
 
