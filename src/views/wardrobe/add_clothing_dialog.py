@@ -14,13 +14,17 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QFormLayout,
     QDateEdit,
-    QDialogButtonBox
+    QDialogButtonBox,
+    QCheckBox,
+    QSpacerItem,
+    QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QSettings
+from PyQt6.QtGui import QPixmap, QIcon
 import asyncio
 import os
 import logging
+import json
 
 from ..dialogs.base_dialog import BaseDialog
 from src.utils.image_processor import (
@@ -129,6 +133,68 @@ class ImageProcessThread(QThread):
         except Exception as e:
             logger.error(f"清理资源时出错: {str(e)}")
 
+class ProcessingPreferencesDialog(BaseDialog):
+    """图片处理偏好设置对话框"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("处理偏好设置")
+        self.setModal(True)
+        
+        # 加载当前设置
+        self.settings = QSettings("MiaoDao", "WardrobeManager")
+        
+        # 创建布局
+        layout = QVBoxLayout()
+        
+        # 图片处理选项
+        processing_group = QGroupBox("图片处理选项")
+        processing_layout = QFormLayout()
+        
+        # 颜色数量
+        self.color_count = QSpinBox()
+        self.color_count.setRange(1, 10)
+        self.color_count.setValue(self.settings.value("processing/color_count", 5, int))
+        processing_layout.addRow("提取颜色数量:", self.color_count)
+        
+        # 图片质量
+        self.image_quality = QSpinBox()
+        self.image_quality.setRange(60, 100)
+        self.image_quality.setValue(self.settings.value("processing/image_quality", 90, int))
+        processing_layout.addRow("图片质量:", self.image_quality)
+        
+        # 自动处理选项
+        self.auto_process = QCheckBox("选择图片后自动开始处理")
+        self.auto_process.setChecked(self.settings.value("processing/auto_process", True, bool))
+        processing_layout.addRow(self.auto_process)
+        
+        # 大图片警告
+        self.warn_large_images = QCheckBox("处理大图片时显示警告")
+        self.warn_large_images.setChecked(self.settings.value("processing/warn_large_images", True, bool))
+        processing_layout.addRow(self.warn_large_images)
+        
+        processing_group.setLayout(processing_layout)
+        layout.addWidget(processing_group)
+        
+        # 按钮
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | 
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.save_settings)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+        self.setLayout(layout)
+    
+    def save_settings(self):
+        """保存设置"""
+        self.settings.setValue("processing/color_count", self.color_count.value())
+        self.settings.setValue("processing/image_quality", self.image_quality.value())
+        self.settings.setValue("processing/auto_process", self.auto_process.isChecked())
+        self.settings.setValue("processing/warn_large_images", self.warn_large_images.isChecked())
+        self.accept()
+
 class AddClothingDialog(BaseDialog):
     """添加衣物对话框"""
     
@@ -137,6 +203,9 @@ class AddClothingDialog(BaseDialog):
         logger.info("初始化添加衣物对话框")
         self.setWindowTitle("添加衣物")
         self.setModal(True)
+        
+        # 加载设置
+        self.settings = QSettings("MiaoDao", "WardrobeManager")
         
         # 初始化变量
         self.processed_image_path = None
@@ -175,11 +244,32 @@ class AddClothingDialog(BaseDialog):
         processed_group.setLayout(processed_layout)
         image_layout.addWidget(processed_group)
         
-        # 上传按钮
-        upload_btn = QPushButton("选择图片")
-        upload_btn.clicked.connect(self.on_image_selected)
-        image_layout.addWidget(upload_btn)
+        # 图片操作按钮
+        button_layout = QVBoxLayout()
         
+        # 选择图片按钮
+        upload_btn = QPushButton("选择图片")
+        upload_btn.setIcon(QIcon.fromTheme("document-open"))
+        upload_btn.clicked.connect(self.on_image_selected)
+        button_layout.addWidget(upload_btn)
+        
+        # 处理图片按钮
+        self.process_btn = QPushButton("处理图片")
+        self.process_btn.setIcon(QIcon.fromTheme("view-refresh"))
+        self.process_btn.clicked.connect(self.start_processing)
+        self.process_btn.setEnabled(False)
+        button_layout.addWidget(self.process_btn)
+        
+        # 设置按钮
+        settings_btn = QPushButton("处理设置")
+        settings_btn.setIcon(QIcon.fromTheme("preferences-system"))
+        settings_btn.clicked.connect(self.show_preferences)
+        button_layout.addWidget(settings_btn)
+        
+        # 添加弹性空间
+        button_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        
+        image_layout.addLayout(button_layout)
         layout.addLayout(image_layout)
         
         # 表单区域
@@ -300,6 +390,19 @@ class AddClothingDialog(BaseDialog):
                 logger.error(f"无法加载图片: {image_path}")
                 QMessageBox.warning(self, "错误", "无法加载所选图片")
                 return
+            
+            # 检查图片大小
+            file_size = os.path.getsize(image_path) / (1024 * 1024)  # MB
+            if file_size > 5 and self.settings.value("processing/warn_large_images", True, bool):
+                response = QMessageBox.warning(
+                    self,
+                    "大图片警告",
+                    f"所选图片较大 ({file_size:.1f}MB)，处理可能需要较长时间。是否继续？",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if response == QMessageBox.StandardButton.No:
+                    return
                 
             scaled_pixmap = pixmap.scaled(
                 200,
@@ -310,25 +413,102 @@ class AddClothingDialog(BaseDialog):
             self.original_preview.setPixmap(scaled_pixmap)
             self.original_preview.setToolTip(image_path)
             
-            # 创建进度对话框
-            self.progress_dialog = QProgressDialog("正在处理图片...", "取消", 0, 100, self)
-            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-            self.progress_dialog.setAutoReset(False)
-            self.progress_dialog.setAutoClose(False)
-            self.progress_dialog.canceled.connect(self.cancel_processing)
+            # 启用处理按钮
+            self.process_btn.setEnabled(True)
             
-            # 启动图片处理线程
-            logger.info("启动图片处理线程")
-            self.process_thread = ImageProcessThread(image_path)
-            self.process_thread.finished.connect(self.on_image_processed)
-            self.process_thread.error.connect(self.on_process_error)
-            self.process_thread.progress.connect(self.update_progress)
-            self.process_thread.start()
-            
-            # 发送识别请求
-            self.image_selected_for_recognition.emit(image_path)
+            # 如果设置了自动处理，开始处理
+            if self.settings.value("processing/auto_process", True, bool):
+                self.start_processing()
         else:
             logger.info("用户取消了图片选择")
+    
+    def start_processing(self):
+        """开始处理图片"""
+        if not self.original_image_path:
+            return
+            
+        # 创建进度对话框
+        self.progress_dialog = QProgressDialog(self)
+        self.progress_dialog.setWindowTitle("处理图片")
+        self.progress_dialog.setLabelText("准备处理...")
+        self.progress_dialog.setRange(0, 100)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setAutoReset(False)
+        self.progress_dialog.setAutoClose(False)
+        
+        # 自定义取消按钮
+        cancel_button = QPushButton("取消")
+        cancel_button.clicked.connect(self.cancel_processing)
+        self.progress_dialog.setCancelButton(cancel_button)
+        
+        # 启动图片处理线程
+        logger.info("启动图片处理线程")
+        self.process_thread = ImageProcessThread(self.original_image_path)
+        self.process_thread.finished.connect(self.on_image_processed)
+        self.process_thread.error.connect(self.on_process_error)
+        self.process_thread.progress.connect(self.update_progress)
+        self.process_thread.start()
+        
+        # 禁用处理按钮
+        self.process_btn.setEnabled(False)
+    
+    def update_progress(self, message: str, value: int):
+        """更新进度对话框"""
+        if self.progress_dialog:
+            self.progress_dialog.setLabelText(message)
+            self.progress_dialog.setValue(value)
+            
+            # 添加详细信息
+            if value == 20:
+                self.progress_dialog.setLabelText(f"{message}\n正在使用AI模型分析图片...")
+            elif value == 60:
+                self.progress_dialog.setLabelText(f"{message}\n正在进行颜色聚类分析...")
+            
+            if value >= 100:
+                self.progress_dialog.close()
+                self.progress_dialog = None
+                # 重新启用处理按钮
+                self.process_btn.setEnabled(True)
+    
+    def on_process_error(self, error_message: str):
+        """处理图片处理错误"""
+        logger.error(f"图片处理错误: {error_message}")
+        
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        
+        # 显示友好的错误提示
+        error_title = "处理错误"
+        if "太大" in error_message:
+            error_title = "图片太大"
+        elif "不支持的格式" in error_message:
+            error_title = "格式不支持"
+        elif "无法加载" in error_message:
+            error_title = "加载失败"
+        
+        QMessageBox.warning(self, error_title, error_message)
+        
+        # 清理预览
+        self.processed_preview.clear()
+        self.processed_preview.setText("去背景预览")
+        
+        # 重置颜色选择
+        self.color_combo.clear()
+        self.color_preview.setStyleSheet("background: none; border: 1px solid #ccc;")
+        
+        # 重新启用处理按钮
+        self.process_btn.setEnabled(True)
+    
+    def get_processing_config(self) -> dict:
+        """获取处理配置"""
+        return {
+            'num_colors': self.settings.value("processing/color_count", 5, int),
+            'quality': self.settings.value("processing/image_quality", 90, int),
+            'min_size': (100, 100),
+            'max_size': (4000, 4000),
+            'allowed_formats': ['jpg', 'jpeg', 'png', 'bmp']
+        }
     
     def on_image_processed(self, processed_path, colors):
         """处理完成的回调"""
@@ -409,30 +589,11 @@ class AddClothingDialog(BaseDialog):
             self.progress_dialog = None
             QMessageBox.information(self, "已取消", "图片处理已取消")
     
-    def update_progress(self, message: str, value: int):
-        """更新进度对话框"""
-        if self.progress_dialog:
-            self.progress_dialog.setLabelText(message)
-            self.progress_dialog.setValue(value)
-            if value >= 100:
-                self.progress_dialog.close()
-                self.progress_dialog = None
-    
-    def on_process_error(self, error_message: str):
-        """处理图片处理错误"""
-        logger.error(f"图片处理错误: {error_message}")
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-        QMessageBox.warning(self, "处理错误", f"图片处理失败: {error_message}")
-        
-        # 清理预览
-        self.processed_preview.clear()
-        self.processed_preview.setText("去背景预览")
-        
-        # 重置颜色选择
-        self.color_combo.clear()
-        self.color_preview.setStyleSheet("background: none; border: 1px solid #ccc;")
+    def show_preferences(self):
+        """显示偏好设置对话框"""
+        dialog = ProcessingPreferencesDialog(self)
+        if dialog.exec():
+            logger.info("用户更新了处理偏好设置")
     
     def get_clothing_data(self) -> dict:
         """获取衣物数据"""
@@ -546,6 +707,6 @@ class AddClothingDialog(BaseDialog):
         """关闭对话框时清理资源"""
         if self.process_thread and self.process_thread.isRunning():
             logger.info("关闭对话框，取消正在进行的处理")
-            self.process_thread.cancel()
+            self.cancel_processing()
             self.process_thread.wait()
         event.accept() 
