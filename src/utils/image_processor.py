@@ -56,23 +56,30 @@ class ImageProcessor:
             # 如果未指定输出路径，在原文件名后添加 _no_bg
             if output_path is None:
                 filename, ext = os.path.splitext(image_path)
-                output_path = f"{filename}_no_bg{ext}"
+                output_path = f"{filename}_no_bg.png"  # 强制使用PNG以支持透明度
             
             # 读取图片
             input_image = Image.open(image_path)
             
-            # 移除背景
-            output_image = remove(input_image)
+            # 移除背景 - 尝试使用更明确的参数
+            logger.info(f"开始移除背景: {image_path}")
+            output_image = remove(
+                input_image,
+                alpha_matting=True,
+                alpha_matting_foreground_threshold=240,
+                alpha_matting_background_threshold=10
+            )
             
-            # 保存结果
-            output_image.save(output_path)
+            # 保存结果 - 确保保存为PNG以保留透明度
+            output_path = os.path.splitext(output_path)[0] + ".png"
+            output_image.save(output_path, format="PNG")
             
             logger.info(f"背景移除成功: {output_path}")
             return output_path
             
         except Exception as e:
             logger.error(f"背景移除失败: {str(e)}")
-            raise
+            raise BackgroundRemovalError(f"背景移除失败: {str(e)}")
     
     @staticmethod
     async def extract_main_colors(image_path: str, num_colors: int = 3) -> List[Tuple[str, str, float]]:
@@ -92,20 +99,36 @@ class ImageProcessor:
             if image is None:
                 raise ValueError(f"无法读取图片: {image_path}")
             
-            # 如果图片包含alpha通道（RGBA），只保留RGB通道
-            if image.shape[-1] == 4:
-                # 使用alpha通道作为mask
-                mask = image[:, :, 3] > 0
-                # 只处理非透明区域
-                pixels = image[mask][:, :3]
-            else:
-                pixels = image.reshape(-1, 3)
+            logger.info(f"图片形状: {image.shape}, 通道数: {image.shape[-1] if len(image.shape) >= 3 else 1}")
             
-            # 转换为RGB格式
-            pixels = cv2.cvtColor(pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2RGB).reshape(-1, 3)
+            # 如果图片包含alpha通道（RGBA），只保留RGB通道并使用alpha通道作为mask
+            if len(image.shape) >= 3 and image.shape[-1] == 4:
+                # 创建mask，只处理非透明区域（alpha > 0）
+                mask = image[:, :, 3] > 10  # 使用更宽松的阈值
+                
+                # 确保mask中有足够的像素
+                if np.sum(mask) < 100:
+                    logger.warning(f"mask中像素太少: {np.sum(mask)}，使用全图")
+                    pixels = image[:, :, :3].reshape(-1, 3)
+                else:
+                    # 只处理非透明区域的RGB部分
+                    pixels = image[mask][:, :3]
+                    logger.info(f"使用mask提取了 {len(pixels)} 个像素")
+            else:
+                # 如果是RGB图像，使用所有像素
+                pixels = image.reshape(-1, 3) if len(image.shape) >= 3 else np.zeros((1, 3))
+            
+            # 如果像素数量为0，返回默认颜色
+            if len(pixels) == 0:
+                logger.warning("没有有效像素，返回默认颜色")
+                return [("黑色", "#000000", 100.0)]
+            
+            # 转换为RGB格式（如果需要）
+            if len(pixels) > 0 and pixels.shape[1] >= 3:
+                pixels = cv2.cvtColor(pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2RGB).reshape(-1, 3)
             
             # 使用K-means聚类
-            kmeans = KMeans(n_clusters=num_colors, random_state=42)
+            kmeans = KMeans(n_clusters=min(num_colors, len(pixels)), random_state=42, n_init=10)
             kmeans.fit(pixels)
             
             # 获取聚类中心（主要颜色）
@@ -127,12 +150,12 @@ class ImageProcessor:
             # 按占比降序排序
             result.sort(key=lambda x: x[2], reverse=True)
             
-            logger.info(f"成功提取 {num_colors} 种主要颜色")
+            logger.info(f"成功提取 {len(result)} 种主要颜色: {result}")
             return result
             
         except Exception as e:
-            logger.error(f"颜色提取失败: {str(e)}")
-            raise
+            logger.error(f"颜色提取失败: {str(e)}", exc_info=True)
+            raise ColorExtractionError(f"颜色提取失败: {str(e)}")
     
     @staticmethod
     def _get_color_name(rgb: Tuple[int, int, int]) -> str:
@@ -304,18 +327,32 @@ async def process_clothing_image(
             try:
                 # 生成输出文件名
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                output_filename = f"no_bg_{timestamp}.png"
+                output_filename = f"no_bg_{timestamp}.png"  # 强制使用PNG格式保存
                 if output_dir:
                     os.makedirs(output_dir, exist_ok=True)
                     output_path = os.path.join(output_dir, output_filename)
                 else:
                     output_path = os.path.join(temp_dir, output_filename)
                 
-                # 移除背景
-                output_image = remove(image)
-                output_image.save(output_path, quality=config['quality'])
+                # 移除背景 - 使用相同的增强参数
+                output_image = remove(
+                    image,
+                    alpha_matting=True,
+                    alpha_matting_foreground_threshold=240,
+                    alpha_matting_background_threshold=10
+                )
+                # 保存为PNG格式以保留透明度
+                output_image.save(output_path, format="PNG")
+                
+                # 验证输出文件是否存在且有效
+                if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                    raise BackgroundRemovalError("背景移除后的图片保存失败")
+                
+                # 打印处理结果
+                logger.info(f"背景移除成功，保存到: {output_path}")
                 
             except Exception as e:
+                logger.error(f"背景移除失败: {str(e)}", exc_info=True)
                 raise BackgroundRemovalError(f"背景移除失败: {str(e)}")
                 
             if progress_callback:

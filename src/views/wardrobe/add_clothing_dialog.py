@@ -25,6 +25,7 @@ import asyncio
 import os
 import logging
 import json
+from pathlib import Path
 
 from ..dialogs.base_dialog import BaseDialog
 from src.utils.image_processor import (
@@ -36,6 +37,11 @@ from src.utils.image_processor import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 获取项目根目录
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+TRANSPARENT_BG_PATH = os.path.join(ROOT_DIR, "resources", "images", "transparent_bg.png")
+logger.info(f"透明背景图案路径: {TRANSPARENT_BG_PATH}")
 
 class ImageProcessThread(QThread):
     """图片处理线程"""
@@ -533,6 +539,20 @@ class AddClothingDialog(BaseDialog):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
+            
+            # 对PNG图片设置透明背景显示
+            if processed_path.lower().endswith('.png'):
+                self.processed_preview.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: white;
+                        border: 1px solid #ccc;
+                        background-image: url({TRANSPARENT_BG_PATH.replace('\\', '/')});
+                        background-repeat: repeat;
+                    }}
+                """)
+            else:
+                self.processed_preview.setStyleSheet("border: 1px solid #ccc;")
+                
             self.processed_preview.setPixmap(scaled_pixmap)
             
             # 更新颜色选项
@@ -572,12 +592,36 @@ class AddClothingDialog(BaseDialog):
                             padding: 2px;
                         }}
                     """)
+                    # 设置文本颜色以确保在深色背景上可见
+                    r, g, b = int(hex_code[1:3], 16), int(hex_code[3:5], 16), int(hex_code[5:7], 16)
+                    brightness = (r * 299 + g * 587 + b * 114) / 1000
+                    text_color = "#FFFFFF" if brightness < 128 else "#000000"
+                    
+                    # 为了视觉效果，在颜色预览框中显示颜色代码
+                    self.color_preview.setText(hex_code)
+                    self.color_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    self.color_preview.setStyleSheet(f"""
+                        QLabel {{
+                            background: {hex_code};
+                            color: {text_color};
+                            border: 1px solid #ccc;
+                            border-radius: 3px;
+                            padding: 2px;
+                            font-size: 8pt;
+                        }}
+                    """)
                 else:
                     print(f"警告：颜色索引 {index} 没有关联的颜色代码")
+                    self.color_preview.setText("")
+                    self.color_preview.setStyleSheet("background: none; border: 1px solid #ccc;")
             else:
                 print(f"警告：无效的颜色索引 {index}")
+                self.color_preview.setText("")
+                self.color_preview.setStyleSheet("background: none; border: 1px solid #ccc;")
         except Exception as e:
             print(f"更新颜色预览时出错：{str(e)}")
+            self.color_preview.setText("")
+            self.color_preview.setStyleSheet("background: none; border: 1px solid #ccc;")
             
     def cancel_processing(self):
         """取消图片处理"""

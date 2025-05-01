@@ -20,9 +20,20 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QPixmap
+import os
+import logging
+import sys
+from pathlib import Path
 
 from src.domain.model.entities import ClothingItem
 from .add_clothing_dialog import AddClothingDialog
+
+logger = logging.getLogger(__name__)
+
+# 获取项目根目录
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+TRANSPARENT_BG_PATH = os.path.join(ROOT_DIR, "resources", "images", "transparent_bg.png")
+logger.info(f"透明背景图案路径: {TRANSPARENT_BG_PATH}")
 
 class WardrobeView(QWidget):
     """衣橱管理视图 - 显示列表和详情"""
@@ -235,18 +246,45 @@ class WardrobeView(QWidget):
 
         # --- 显示图片预览 --- 
         if item.image_url and os.path.exists(item.image_url):
-            pixmap = QPixmap(item.image_url)
-            if not pixmap.isNull():
-                 scaled_pixmap = pixmap.scaled(
-                     self.detail_image_label.size() * 0.95,
-                     Qt.AspectRatioMode.KeepAspectRatio,
-                     Qt.TransformationMode.SmoothTransformation
-                 )
-                 self.detail_image_label.setPixmap(scaled_pixmap)
-                 self.detail_image_label.setStyleSheet("border: 1px solid black;")
-                 return # 成功加载图片后返回
-            else:
-                 print(f"Warning: Could not load image from {item.image_url}")
+            try:
+                logger.info(f"加载图片: {item.image_url}")
+                # 对于PNG格式（可能有透明背景），设置透明背景
+                if item.image_url.lower().endswith('.png'):
+                    pixmap = QPixmap(item.image_url)
+                    if not pixmap.isNull():
+                        # 为透明图片设置棋盘格背景
+                        self.detail_image_label.setStyleSheet(f"""
+                            QLabel {{
+                                background-color: white;
+                                border: 1px solid black;
+                                background-image: url({TRANSPARENT_BG_PATH.replace('\\', '/')});
+                                background-repeat: repeat;
+                            }}
+                        """)
+                        # 缩放图片
+                        scaled_pixmap = pixmap.scaled(
+                            self.detail_image_label.size() * 0.95,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        self.detail_image_label.setPixmap(scaled_pixmap)
+                        return
+                
+                # 处理普通图片
+                pixmap = QPixmap(item.image_url)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(
+                        self.detail_image_label.size() * 0.95,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    self.detail_image_label.setPixmap(scaled_pixmap)
+                    self.detail_image_label.setStyleSheet("border: 1px solid black;")
+                    return # 成功加载图片后返回
+                else:
+                    logger.warning(f"无法加载图片: {item.image_url}")
+            except Exception as e:
+                logger.error(f"显示图片时发生错误: {str(e)}", exc_info=True)
                  
         # 如果没有图片或加载失败，显示默认状态
         self.detail_image_label.setText("无图片或加载失败")
