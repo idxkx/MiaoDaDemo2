@@ -1,3 +1,4 @@
+from typing import List, Optional
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,17 +10,26 @@ from PyQt6.QtWidgets import (
     QToolBar,
     QLabel,
     QComboBox,
-    QLineEdit
+    QLineEdit,
+    QScrollArea,
+    QFrame,
+    QGridLayout,
+    QSizePolicy,
+    QListWidget,
+    QListWidgetItem
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QStandardItemModel, QStandardItem
+from PyQt6.QtGui import QStandardItemModel, QStandardItem, QPixmap
+
+from src.domain.model.entities import ClothingItem
+from .add_clothing_dialog import AddClothingDialog
 
 class WardrobeView(QWidget):
     """衣橱管理视图 - 显示列表和详情"""
     
     # 信号定义
     # category_selected = pyqtSignal(str)  # 分类选中信号 (暂时保留，但功能需调整)
-    # item_selected = pyqtSignal(str)      # 不再需要这个信号
+    item_selected = pyqtSignal(ClothingItem)  # 衣物选中信号
     add_clothing_requested = pyqtSignal() 
     
     def __init__(self, parent=None):
@@ -186,10 +196,29 @@ class WardrobeView(QWidget):
         self.detail_name_label.setText(f"名称: {item.name or '-'}")
         # TODO: 需要根据 category_id 获取分类名称
         self.detail_category_label.setText(f"分类ID: {item.category_id}") 
-        self.detail_color_label.setText(f"颜色: {getattr(item.color, 'value', '?')}")
-        self.detail_size_label.setText(f"尺码: {getattr(item.size, 'value', '?')}")
-        self.detail_brand_label.setText(f"品牌: {getattr(item.brand, 'value', '?')}")
-        self.detail_material_label.setText(f"材质: {getattr(item.material, 'value', '?')}")
+        
+        # 显示颜色信息
+        if item.color:
+            color_text = f"{item.color.name}"
+            if hasattr(item.color, 'hex_code'):
+                self.detail_color_label.setStyleSheet(f"""
+                    QLabel {{
+                        background: {item.color.hex_code};
+                        border: 1px solid #ccc;
+                        border-radius: 3px;
+                        padding: 2px 5px;
+                    }}
+                """)
+            else:
+                self.detail_color_label.setStyleSheet("")
+            self.detail_color_label.setText(f"颜色: {color_text}")
+        else:
+            self.detail_color_label.setText("颜色: -")
+            self.detail_color_label.setStyleSheet("")
+        
+        self.detail_size_label.setText(f"尺码: {item.size.value if item.size else '-'}")
+        self.detail_brand_label.setText(f"品牌: {item.brand.name if item.brand else '-'}")
+        self.detail_material_label.setText(f"材质: {item.material.name if item.material else '-'}")
         date_str = item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '-'
         self.detail_purchase_date_label.setText(f"购买日期: {date_str}")
         self.detail_price_label.setText(f"价格: {item.price:.2f}" if item.price is not None else "价格: -")
@@ -240,3 +269,11 @@ class WardrobeView(QWidget):
          self.detail_description_label.setText("描述: -")
          self.detail_tags_label.setText("标签: -")
          self.detail_favorite_label.setText("收藏: 否") 
+
+    def on_add_clothing(self):
+        """添加衣物"""
+        dialog = AddClothingDialog(self)
+        if dialog.exec():
+            # 获取衣物数据
+            data = dialog.get_clothing_data()
+            print("添加衣物:", data) 

@@ -80,16 +80,20 @@ class Brand(ValueObject):
 class Material(ValueObject):
     """材质值对象"""
     name: str
-    composition: dict[str, float]  # 材质成分及占比
+    composition: Optional[dict[str, float]] = None  # 材质成分及占比
     
     def __post_init__(self):
         if not self.name:
             raise ValueError("Material name cannot be empty")
-        if not self.composition:
-            raise ValueError("Composition cannot be empty")
-        total = sum(self.composition.values())
-        if not (99.5 <= total <= 100.5):  # 允许0.5%的误差
-            raise ValueError("Composition percentages must sum to 100%")
+        if self.composition is not None:
+            # 验证成分占比
+            if not isinstance(self.composition, dict):
+                raise ValueError("Composition must be a dictionary")
+            if not all(isinstance(v, (int, float)) for v in self.composition.values()):
+                raise ValueError("Composition values must be numbers")
+            total = sum(self.composition.values())
+            if not (99.5 <= total <= 100.5):  # 允许0.5%的误差
+                raise ValueError("Composition percentages must sum to 100%")
 
 @dataclass(frozen=True)
 class Style(ValueObject):

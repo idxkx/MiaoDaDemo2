@@ -236,54 +236,63 @@ class ClothingItem(Entity):
         # Potential domain event can be added here
 
     def to_dict(self) -> dict:
-        """将 ClothingItem 对象（包括 Tag）序列化为字典"""
-        # 注意：Value Objects (Color, Size, Brand, Material) 也需要 to_dict
-        # 这里暂时假设它们有 .value 属性或直接可序列化
+        """将 ClothingItem 对象序列化为字典"""
         return {
             "id": str(self.id),
             "name": self.name,
             "category_id": str(self.category_id),
-            # 假设值对象有 .value 属性或可直接序列化
-            "color": self.color.to_dict() if hasattr(self.color, 'to_dict') else getattr(self.color, 'value', str(self.color)),
-            "size": self.size.to_dict() if hasattr(self.size, 'to_dict') else getattr(self.size, 'value', str(self.size)),
-            "dimension": self.dimension.to_dict() if hasattr(self.dimension, 'to_dict') else getattr(self.dimension, 'value', str(self.dimension)),
-            "brand": self.brand.to_dict() if hasattr(self.brand, 'to_dict') else getattr(self.brand, 'value', str(self.brand)),
-            "material": self.material.to_dict() if hasattr(self.material, 'to_dict') else getattr(self.material, 'value', str(self.material)),
+            "wardrobe_id": str(self.wardrobe_id),
+            "color": {
+                "name": self.color.name if self.color else "未知",
+                "hex_code": self.color.hex_code if self.color else "#000000"
+            },
+            "size": self.size.value if self.size else None,
+            "brand": self.brand.name if self.brand else None,
+            "material": self.material.name if self.material else None,
             "purchase_date": self.purchase_date.isoformat() if self.purchase_date else None,
             "price": self.price,
             "description": self.description,
-            "image_url": self.image_url,
-            "is_favorite": self.is_favorite,
-            "tags": [tag.to_dict() for tag in self._tags], # 序列化 Tag 列表
-            "version": self.version, 
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "image_url": self.image_url
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> 'ClothingItem':
-        """从字典反序列化为 ClothingItem 对象（包括 Tag）"""
-        # 注意：Value Objects 需要从字典或值重建
-        # 这里简化处理，假设可以直接从 data 中的值创建或需要 from_dict
-        color_val = data.get('color')
-        size_val = data.get('size')
-        brand_val = data.get('brand')
-        material_val = data.get('material')
+        """从字典反序列化为 ClothingItem 对象"""
+        # 处理颜色数据
+        color_data = data.get('color', {})
+        if isinstance(color_data, dict):
+            color = Color(
+                name=color_data.get('name', '未知'),
+                hex_code=color_data.get('hex_code', '#000000')
+            )
+        else:
+            # 如果是旧数据格式，创建默认颜色
+            color = Color(name='未知', hex_code='#000000')
         
-        # 假设值对象可以直接通过值初始化或有 from_dict
-        color = Color.from_dict(color_val) if isinstance(color_val, dict) and hasattr(Color, 'from_dict') else Color(color_val) if color_val else Color("")
-        size = Size.from_dict(size_val) if isinstance(size_val, dict) and hasattr(Size, 'from_dict') else Size(size_val) if size_val else Size("")
-        brand = Brand.from_dict(brand_val) if isinstance(brand_val, dict) and hasattr(Brand, 'from_dict') else Brand(brand_val) if brand_val else Brand("")
-        material = Material.from_dict(material_val) if isinstance(material_val, dict) and hasattr(Material, 'from_dict') else Material(material_val) if material_val else Material("")
-
-        purchase_date_obj = None
-        if data.get('purchase_date'):
+        # 处理尺码数据
+        size_data = data.get('size')
+        size = Size(value=size_data) if size_data else None
+        
+        # 处理品牌数据
+        brand_data = data.get('brand')
+        brand = Brand(name=brand_data) if brand_data else None
+        
+        # 处理材质数据
+        material_data = data.get('material')
+        material = Material(name=material_data) if material_data else None
+        
+        # 处理日期数据
+        purchase_date_str = data.get('purchase_date')
+        if purchase_date_str:
             try:
-                purchase_date_obj = datetime.fromisoformat(data['purchase_date'])
-            except (ValueError, TypeError):
-                pass # 忽略无效日期格式
-                
-        item = cls(
+                purchase_date = datetime.fromisoformat(purchase_date_str)
+            except ValueError:
+                print(f"警告: 无法解析日期 '{purchase_date_str}'，使用None")
+                purchase_date = None
+        else:
+            purchase_date = None
+        
+        return cls(
             id=UUID(data['id']),
             name=data['name'],
             category_id=UUID(data['category_id']),
@@ -292,27 +301,11 @@ class ClothingItem(Entity):
             size=size,
             brand=brand,
             material=material,
-            purchase_date=purchase_date_obj,
+            purchase_date=purchase_date,
             price=data.get('price', 0.0),
-            dimension=data.get('dimension'),
-            style=data.get('style'),
-            image_metadata=data.get('image_metadata'),
             description=data.get('description'),
             image_url=data.get('image_url')
         )
-        item._is_favorite = data.get('is_favorite', False)
-        # 反序列化 Tag 列表
-        item._tags = [Tag.from_dict(tag_data) for tag_data in data.get('tags', [])]
-        
-        # 可选：恢复时间戳和版本
-        if 'created_at' in data:
-            item._created_at = datetime.fromisoformat(data['created_at'])
-        if 'updated_at' in data:
-            item._updated_at = datetime.fromisoformat(data['updated_at'])
-        if 'version' in data:
-             item._version = data['version']
-             
-        return item
 
 class Category(Entity):
     """分类实体"""

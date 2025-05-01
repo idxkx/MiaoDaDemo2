@@ -11,11 +11,12 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QLocale, QTranslator
 from dotenv import load_dotenv
-from .views.main_window import MainWindow
 
 # 确保能够正确导入其他模块
-# ROOT_DIR = Path(__file__).resolve().parent.parent
-# sys.path.append(str(ROOT_DIR))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
+
+from src.views.main_window import MainWindow
 
 # 加载环境变量
 load_dotenv(Path('.') / '.env')

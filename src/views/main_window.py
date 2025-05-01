@@ -361,22 +361,32 @@ class MainWindow(QMainWindow):
             data = dialog.get_clothing_data()
             print(f"Add Clothing Dialog Accepted. Data: {data}") # 调试信息
 
-            # --- 修改：使用正确的参数名创建 Command，并处理日期 --- 
-            from datetime import datetime # 确保导入
+            # 创建命令对象
+            from datetime import datetime
             purchase_date_obj = None
             purchase_date_str = data.get('purchase_date')
             if purchase_date_str:
                 try:
                     purchase_date_obj = datetime.strptime(purchase_date_str, '%Y-%m-%d')
                 except ValueError:
-                    # 对话框验证时应该已经处理，这里可以记录警告或忽略
                     print(f"警告: 无法解析日期 '{purchase_date_str}', 将忽略购买日期。")
+            
+            # 处理颜色信息
+            color_data = data.get('color', {})
+            if isinstance(color_data, dict):
+                color_name = color_data.get('name', '未知')
+                color_hex = color_data.get('hex_code', '#000000')
+            else:
+                print(f"警告: 颜色数据格式不正确: {color_data}")
+                color_name = '未知'
+                color_hex = '#000000'
             
             command = AddClothingCommand(
                 user_id=self.current_user.id,
                 name=data['name'],
                 category_name=data['category'],
-                color_name=data['color'],
+                color_name=color_name,
+                color_hex=color_hex,  # 添加颜色代码
                 size_value=data['size'],
                 brand_name=data.get('brand') or "",
                 material_name=data.get('material') or "",
@@ -385,72 +395,74 @@ class MainWindow(QMainWindow):
                 description=data.get('description'),
                 image_path=data.get('image_path')
             )
-            # ---
 
             # 初始化仓储和应用服务
             repo = JsonWardrobeRepository()
             service = WardrobeApplicationService(repo)
-            new_item_id = None # 用于存储新衣物的 ID
+            new_item_id = None
 
             try:
-                # --- 修改：调用 add_clothing 并获取返回的 ID --- 
-                # (假设 add_clothing 返回新项目的 ID，如果不是，需要修改服务)
-                created_item = service.add_clothing(command) # 假设返回 ClothingItem 实例或 ID
-                if hasattr(created_item, 'id'): # 如果返回的是对象
-                     new_item_id = created_item.id
-                elif isinstance(created_item, uuid.UUID): # 如果直接返回 ID
-                     new_item_id = created_item
+                # 添加衣物
+                created_item = service.add_clothing(command)
+                if hasattr(created_item, 'id'):
+                    new_item_id = created_item.id
+                elif isinstance(created_item, uuid.UUID):
+                    new_item_id = created_item
                 else:
-                     print("警告: WardrobeApplicationService.add_clothing 未按预期返回新项目的 ID，无法添加 AI 标签。")
-                     # 即使没有 ID，也提示成功
-                     QMessageBox.information(self, "成功", f"衣物 '{command.name}' 添加成功！(标签未添加)")
-                     return # 提前返回，不执行标签逻辑
+                    print("警告: WardrobeApplicationService.add_clothing 未按预期返回新项目的 ID，无法添加 AI 标签。")
+                    QMessageBox.information(self, "成功", f"衣物 '{command.name}' 添加成功！(标签未添加)")
+                    return
                      
                 QMessageBox.information(self, "成功", f"衣物 '{command.name}' 添加成功！")
-                # ---
 
-                # --- 新增：衣物添加成功后，尝试添加 AI 标签 --- 
-                if new_item_id and self.last_recognition_result and 'tag_category' in self.last_recognition_result:
-                     print(f"尝试为新衣物 (ID: {new_item_id}) 添加 AI 类别标签...")
-                     tag_command = AddTagToItemCommand(
-                         item_id=new_item_id,
-                         wardrobe_id=self.current_user.id, # 假设 wardrobe_id 就是 user_id
-                         tag_name=self.last_recognition_result['tag_category'],
-                         tag_category="AI识别类别" # 定义标签的类别
-                     )
-                     try:
-                         # --- 取消注释，实际调用服务 --- 
-                         service.add_tag_to_item(tag_command)
-                         # ---
-                         print(f"标签 '{tag_command.tag_name}' 已通过服务成功添加。")
-                         self.status_bar.showMessage(f"AI 类别标签 '{tag_command.tag_name}' 已添加", 3000)
-                     except AttributeError:
-                          print("错误: WardrobeApplicationService 中缺少 add_tag_to_item 方法。") # 这个理论上不会发生了
-                          self.status_bar.showMessage("AI 类别标签添加失败 (服务未实现)", 3000)
-                     except Exception as tag_err:
-                          print(f"错误: 添加 AI 标签时出错: {tag_err}")
-                          self.status_bar.showMessage("AI 类别标签添加失败", 3000)
-                # ---
+                # 添加 AI 标签
+                if new_item_id and self.last_recognition_result:
+                    # 添加类别标签
+                    if 'tag_category' in self.last_recognition_result:
+                        tag_command = AddTagToItemCommand(
+                            item_id=new_item_id,
+                            wardrobe_id=self.current_user.id,
+                            tag_name=self.last_recognition_result['tag_category'],
+                            tag_category="AI识别类别"
+                        )
+                        try:
+                            service.add_tag_to_item(tag_command)
+                            print(f"标签 '{tag_command.tag_name}' 已通过服务成功添加。")
+                            self.status_bar.showMessage(f"AI 类别标签 '{tag_command.tag_name}' 已添加", 3000)
+                        except Exception as tag_err:
+                            print(f"错误: 添加 AI 标签时出错: {tag_err}")
+                            self.status_bar.showMessage("AI 类别标签添加失败", 3000)
+                    
+                    # 添加风格标签
+                    if 'tag_style' in self.last_recognition_result:
+                        style_tag_command = AddTagToItemCommand(
+                            item_id=new_item_id,
+                            wardrobe_id=self.current_user.id,
+                            tag_name=self.last_recognition_result['tag_style'],
+                            tag_category="AI识别风格"
+                        )
+                        try:
+                            service.add_tag_to_item(style_tag_command)
+                            print(f"风格标签 '{style_tag_command.tag_name}' 已添加。")
+                            self.status_bar.showMessage(f"AI 风格标签 '{style_tag_command.tag_name}' 已添加", 3000)
+                        except Exception as style_err:
+                            print(f"错误: 添加风格标签时出错: {style_err}")
 
-                # --- 修改：添加成功后刷新衣橱视图 --- 
+                # 刷新衣橱视图
                 print("衣物添加/标签处理完成，正在刷新衣橱视图...")
                 self._load_and_display_wardrobe()
-                # ---
 
             except ApplicationException as e:
-                 QMessageBox.critical(self, "错误", f"添加衣物失败: {e}")
-            except Exception as e: # 捕获其他意外错误
-                 QMessageBox.critical(self, "严重错误", f"发生意外错误: {e}")
-                 print(f"Unexpected error adding clothing: {e}") # 打印详细错误到控制台
+                QMessageBox.critical(self, "错误", f"添加衣物失败: {e}")
+            except Exception as e:
+                QMessageBox.critical(self, "严重错误", f"发生意外错误: {e}")
+                print(f"Unexpected error adding clothing: {e}")
         else:
-             # --- 新增：如果用户取消对话框，尝试停止可能在运行的识别线程 ---
-             self.stop_recognition_thread()
-             # ---
+            self.stop_recognition_thread()
 
-        # --- 修改：在 finally 块中清理识别结果和线程 --- 
-        self.last_recognition_result = None # 确保清理
-        self.stop_recognition_thread() # 确保线程退出
-        # 断开信号连接也最好放在 finally 中，以防 accept/reject 时出错
+        # 清理
+        self.last_recognition_result = None
+        self.stop_recognition_thread()
         try:
             dialog.image_selected_for_recognition.disconnect(self.handle_image_recognition_request)
         except TypeError:
@@ -459,7 +471,6 @@ class MainWindow(QMainWindow):
             self.recognition_completed.disconnect(dialog.update_fields_from_recognition)
         except TypeError:
             pass
-        # ---
 
     def on_import_clothing(self):
         """导入衣物 - 待实现"""
@@ -574,31 +585,34 @@ class MainWindow(QMainWindow):
 
     # --- 新增：加载并显示衣橱内容的方法 --- 
     def _load_and_display_wardrobe(self):
-        """加载当前用户的衣物并更新 WardrobeView"""
+        """加载并显示当前用户的衣橱"""
         if not self.current_user:
-            print("无法加载衣橱：无当前用户。")
-            # 可能需要清空 WardrobeView？
-            wardrobe_view = self.nav_items.get("我的衣橱")
-            if wardrobe_view and isinstance(wardrobe_view, WardrobeView):
-                 wardrobe_view.display_items([]) # 显示空列表
+            print("错误：没有当前用户")
             return
-        
-        wardrobe_view = self.nav_items.get("我的衣橱")
-        if not wardrobe_view or not isinstance(wardrobe_view, WardrobeView):
-            print("错误：无法找到 WardrobeView 实例。")
-            return
-            
-        print(f"正在为用户 {self.current_user.id} 加载衣橱...")
+
         try:
-            repo = JsonWardrobeRepository()
-            items = repo.get_all_items(self.current_user.id)
+            print(f"正在为用户 {self.current_user.id} 加载衣橱...")
+            # 获取 WardrobeView 实例
+            wardrobe_view = self.nav_items.get("我的衣橱")
+            if not isinstance(wardrobe_view, WardrobeView):
+                print("错误：找不到衣橱视图")
+                return
+
+            # 创建仓储实例
+            repository = JsonWardrobeRepository()
+            
+            # 加载衣物列表
+            items = repository.get_all_items(self.current_user.id)
             print(f"从仓储加载了 {len(items)} 件衣物。")
+            
+            # 显示衣物列表
             wardrobe_view.display_items(items)
-            self.status_bar.showMessage(f"衣橱已加载 ({len(items)} 件)", 2000)
+            
         except Exception as e:
-             print(f"错误：加载或显示衣橱时出错: {e}")
-             QMessageBox.critical(self, "加载错误", f"加载衣橱失败: {e}")
-             wardrobe_view.display_items([]) # 出错时显示空列表
+            print(f"错误：加载或显示衣橱时出错: {str(e)}")
+            # 出错时显示空列表
+            if isinstance(wardrobe_view, WardrobeView):
+                wardrobe_view.display_items([])
     # ---
 
     # 移除了 create_tool_bar, populate_user_menu, update_user_menu_checkmark,

@@ -88,6 +88,7 @@ class AddClothingCommand:
     name: str
     category_name: str
     color_name: str
+    color_hex: str
     size_value: str
     brand_name: str
     material_name: str
